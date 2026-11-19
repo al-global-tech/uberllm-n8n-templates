@@ -45,8 +45,8 @@ for f in sorted(WF.glob('*.json')):
             for c in branch:
                 if c['node'] not in names:
                     problems.append(f'{f.name}: {src} connects to unknown node {c["node"]}')
-    # Every non-note node is reachable from the trigger.
-    seen, todo = set(), [n['name'] for n in wf['nodes'] if n['type'].endswith('manualTrigger')]
+    # Every non-note node is reachable from a trigger (manual, or a schedule next to it).
+    seen, todo = set(), [n['name'] for n in wf['nodes'] if n['type'].lower().endswith('trigger')]
     while todo:
         cur = todo.pop()
         if cur in seen:

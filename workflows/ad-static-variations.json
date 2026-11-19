@@ -1,0 +1,414 @@
+{
+  "name": "UberLLM: one product photo → many static ad variations",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## One product photo → many static ad variations (UberLLM)\nWrite a list (backgrounds, angles, settings, hooks) and get one picture per line, with the product kept as it is.\n1. **One item per variation** splits `variations` in Settings, one per line.\n2. **Make variation**: `google/nano-banana-2-edit` makes each picture in the shape you set (4:5 for the Meta feed, 1:1, 9:16…).\n3. **Variation file** downloads each one at once. **Variations** lists what was made; **Not made (no charge)** lists the rest, with the reason.\nA variation that cannot be made does not stop the others, and costs nothing.\n\n### Setup (2 minutes)\n1. Get a key at https://uberllm.dev (sign in with your email, add credit).\n2. Open any **UberLLM** HTTP node → Credential → **Create new** → *Header Auth*:\n   - Name: `Authorization`\n   - Value: `Bearer YOUR_UBERLLM_KEY`\n   Every UberLLM node in this workflow uses this one credential.\n3. Edit the **Settings** node, then click **Execute workflow**.\n\n`product_image_url` must be a public `https://` link to the product photo. Up to 100 lines per run.\n\n### Price\nListed on 2026-11-19: 1 still at $0.04 each per variation = about $0.04. Live prices: https://uberllm.dev/ai-ad-creative-api\n\n### What you pay\n- A picture that is not made is not charged.\n- `max_cost_per_image` in Settings refuses a picture that could cost more, before anything is charged.\n- Credit you buy does not expire while your account is open.\n- No UberLLM fee on requests. Adding credit by card costs 5.5% + $0.50.\n\n### Files are short-lived\nPicture links are kept about 15 minutes and video links about 3 hours, and they need your key. The workflow downloads every result at once, so the last node holds the files as binary data: send them to Drive, S3 or your ad tool from there.\n",
+        "height": 1000,
+        "width": 600
+      },
+      "id": "024cbb18-c53d-5747-ac03-354e38caef32",
+      "name": "About",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -640,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Before you run ads\n- People in these pictures and clips are AI-generated. Label them as AI where the platform or the law asks, and never present one as a real customer or a testimonial.\n- No health claims and no before/after pairs: Meta's ad rules apply whatever tool made the creative.\n- Check the model maker's terms for commercial use, and use only product photos you have the rights to.\nLinks to Meta's rules and each maker's terms: https://uberllm.dev/ai-ad-creative-api\n",
+        "height": 330,
+        "width": 620,
+        "color": 3
+      },
+      "id": "57c6a0c6-46ee-5ceb-8ce2-d5027dba2aa6",
+      "name": "Before you run ads",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        320
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "9c66b26a-ffbf-5707-baf9-4b824e3dc36c",
+      "name": "Run workflow",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "81786d00-e44a-5077-9212-f987e8b9afac",
+              "name": "product_image_url",
+              "value": "https://raw.githubusercontent.com/PSA-Team-source/uberllm-n8n-templates/main/samples/bottle.jpg",
+              "type": "string"
+            },
+            {
+              "id": "36bc9022-5f66-5eab-adea-9eae43d4287b",
+              "name": "variations",
+              "value": "on a sunlit wooden kitchen counter next to a bowl of lemons, morning light\non a gym bench beside a folded towel, cool daylight\non a desk next to a laptop and a notebook, soft office light\nheld up by a hand against a clear blue sky, outdoors",
+              "type": "string"
+            },
+            {
+              "id": "82372413-0549-5e18-8483-3c73563d986e",
+              "name": "aspect_ratio",
+              "value": "4:5",
+              "type": "string"
+            },
+            {
+              "id": "b1a867eb-46cb-5430-a9b9-14d04e25004b",
+              "name": "image_model",
+              "value": "google/nano-banana-2-edit",
+              "type": "string"
+            },
+            {
+              "id": "60d8f85e-b168-5720-b765-5e8253b9ad55",
+              "name": "max_cost_per_image",
+              "value": 0.2,
+              "type": "number"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "id": "6dcd65ee-31ca-54be-a85e-47a71c04bf35",
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// One item per line of `variations` in Settings (blank lines and lines starting with # are skipped).\nconst s = $('Settings').first().json;\nconst lines = String(s.variations || '').split('\\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('#'));\nif (!lines.length) throw new Error('Settings → variations is empty: write one variation per line.');\nif (lines.length > 100) throw new Error('At most 100 variations per run.');\nreturn lines.map((variation, i) => ({ json: {\n  n: i + 1,\n  variation,\n  prompt: `Show this product ${variation}. Keep the product exactly as it is in the photo: same shape, colours, label and text.`,\n} }));"
+      },
+      "id": "67e6012c-de65-5a7e-aca6-756bfe37002d",
+      "name": "One item per variation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.uberllm.dev/v1/images/edits",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: $('Settings').first().json.image_model, prompt: $json.prompt, image_url: $('Settings').first().json.product_image_url, aspect_ratio: $('Settings').first().json.aspect_ratio, n: 1, max_cost: $('Settings').first().json.max_cost_per_image }) }}",
+        "options": {
+          "timeout": 180000
+        }
+      },
+      "id": "33f10b52-6839-57f9-91b2-0acf58b70e5e",
+      "name": "Make variation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uberllmApiKey01",
+          "name": "UberLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "efcb14ec-197f-54d6-b93f-4014a4ca387e",
+              "leftValue": "={{ !!($json.data && $json.data[0] && $json.data[0].url) }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "6a6a8259-35e3-5ffe-93a7-93558ac286c5",
+      "name": "Made?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c343c12f-b87c-5e2b-ba97-8f6af2c75f1b",
+              "name": "n",
+              "value": "={{ $('One item per variation').item.json.n }}",
+              "type": "number"
+            },
+            {
+              "id": "3def50ca-62e1-57d7-a81d-3daaa09b4e7d",
+              "name": "variation",
+              "value": "={{ $('One item per variation').item.json.variation }}",
+              "type": "string"
+            },
+            {
+              "id": "a877627e-df10-504a-abaa-66c69936557f",
+              "name": "url",
+              "value": "={{ $json.data[0].url }}",
+              "type": "string"
+            },
+            {
+              "id": "05b1793d-01bc-5ae0-912a-9a2ac8cfa6b4",
+              "name": "cost_usd",
+              "value": "={{ $json.usage && $json.usage.cost_usd != null ? $json.usage.cost_usd : null }}",
+              "type": "number"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "id": "434ae8ab-1de8-5ea7-bccb-3dec27246ff8",
+      "name": "Variation result",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1100,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          },
+          "timeout": 300000
+        }
+      },
+      "id": "bcf5a5d0-c9e6-5e2d-9afd-3f22ceebffae",
+      "name": "Variation file",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        -100
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uberllmApiKey01",
+          "name": "UberLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "// The pictures that were made (each item: its variation, cost and the file as binary `data`),\n// then one last item that says how many were made and which were not. A picture that is not\n// made costs nothing.\nconst made = $input.all().map((item) => ({ json: { ...item.json, file_name: `variation-${String(item.json.n).padStart(2, '0')}.png` }, binary: item.binary }));\nconst asked = $('One item per variation').all().map((i) => i.json);\nconst madeNs = new Set(made.map((m) => m.json.n));\nconst total = made.reduce((s, m) => s + (Number(m.json.cost_usd) || 0), 0);\nreturn [...made, { json: {\n  summary: true,\n  made: made.length,\n  not_made: asked.filter((a) => !madeNs.has(a.n)).map((a) => a.variation),\n  total_cost_usd: Math.round(total * 10000) / 10000,\n} }];"
+      },
+      "id": "c2a1db51-0747-5c69-a9a9-02d958867bb0",
+      "name": "Variations",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6688158f-de29-5d43-934b-26fc9dd77e72",
+              "name": "n",
+              "value": "={{ $('One item per variation').item.json.n }}",
+              "type": "number"
+            },
+            {
+              "id": "cf188973-aae4-5ea8-80df-645b48bd1484",
+              "name": "variation",
+              "value": "={{ $('One item per variation').item.json.variation }}",
+              "type": "string"
+            },
+            {
+              "id": "13440d8a-ca48-5a49-b7da-59fe87869315",
+              "name": "error",
+              "value": "={{ ($json.error && ($json.error.message || $json.error)) || $json.message || 'The picture was not made.' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "id": "f08d06ab-3d86-5eb6-8833-497fb689b324",
+      "name": "Not made (no charge)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1100,
+        120
+      ]
+    }
+  ],
+  "connections": {
+    "Run workflow": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "One item per variation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One item per variation": {
+      "main": [
+        [
+          {
+            "node": "Make variation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Make variation": {
+      "main": [
+        [
+          {
+            "node": "Made?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Made?": {
+      "main": [
+        [
+          {
+            "node": "Variation result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Not made (no charge)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Variation result": {
+      "main": [
+        [
+          {
+            "node": "Variation file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Variation file": {
+      "main": [
+        [
+          {
+            "node": "Variations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "description": "One product photo and a list become one static ad picture per line (backgrounds, angles, hooks), in the shape you set, with one UberLLM key."
+  },
+  "tags": []
+}

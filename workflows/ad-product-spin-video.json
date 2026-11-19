@@ -1,0 +1,660 @@
+{
+  "name": "UberLLM: product photo → studio spin video",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Product photo → studio spin video (UberLLM)\nA clean turntable-style clip for a store page or an ad, from one photo:\n1. **Make studio still**: `google/nano-banana-2-edit` puts the product alone on a clean studio background (1:1).\n2. **Start video**: `kling/kling-o3-standard-image-to-video` turns it slowly, camera still, 5 s.\n3. **Spin video** holds the clip as binary `data`.\n\nThe clip takes the shape of the still: set `aspect_ratio` to `1:1`, `4:5` or `9:16`. The model draws the sides it cannot see in your photo, so check the result against the real product. A turn shows best on a product with a label or an uneven shape.\n\n### Setup (2 minutes)\n1. Get a key at https://uberllm.dev (sign in with your email, add credit).\n2. Open any **UberLLM** HTTP node → Credential → **Create new** → *Header Auth*:\n   - Name: `Authorization`\n   - Value: `Bearer YOUR_UBERLLM_KEY`\n   Every UberLLM node in this workflow uses this one credential.\n3. Edit the **Settings** node, then click **Execute workflow**.\n\n`product_image_url` must be a public `https://` link to the product photo.\n\n### Price\nListed on 2026-11-19: 1 still at $0.04 each + a 5 s clip at $0.07 per second = about $0.39. Live prices: https://uberllm.dev/ai-ad-creative-api\n\n### What you pay\n- The start reply shows the price now (`estimated_cost_usd`). The bill is what the provider charged, which can differ if the job moves to another provider.\n- Your ceiling is `max_cost` in **Settings**: a job that would cost more is refused or cancelled at no charge.\n- A video that fails or runs out of time costs nothing: the whole hold comes back.\n- Credit you buy does not expire while your account is open.\n- No UberLLM fee on requests. Adding credit by card costs 5.5% + $0.50.\n\n### Files are short-lived\nPicture links are kept about 15 minutes and video links about 3 hours, and they need your key. The workflow downloads every result at once, so the last node holds the files as binary data: send them to Drive, S3 or your ad tool from there.\n\n### Why the still is uploaded\nA result link needs your key, so a video model cannot open it. **Upload still** puts the picture in your UberLLM files (kept 24 hours) and the clip starts from that upload.\n",
+        "height": 1040,
+        "width": 600
+      },
+      "id": "23263db1-89cd-54b1-9918-7fec5ba0a9a6",
+      "name": "About",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -640,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Before you run ads\n- People in these pictures and clips are AI-generated. Label them as AI where the platform or the law asks, and never present one as a real customer or a testimonial.\n- No health claims and no before/after pairs: Meta's ad rules apply whatever tool made the creative.\n- Check the model maker's terms for commercial use, and use only product photos you have the rights to.\nLinks to Meta's rules and each maker's terms: https://uberllm.dev/ai-ad-creative-api\n",
+        "height": 330,
+        "width": 620,
+        "color": 3
+      },
+      "id": "6de73de1-b509-5881-99d3-61171499590d",
+      "name": "Before you run ads",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1320,
+        420
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "92888244-bebc-51fc-9efa-d1be96d407dd",
+      "name": "Run workflow",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "44c7af91-d3a9-5c03-8c37-adb5e88869db",
+              "name": "product_image_url",
+              "value": "https://raw.githubusercontent.com/PSA-Team-source/uberllm-n8n-templates/main/samples/bottle.jpg",
+              "type": "string"
+            },
+            {
+              "id": "01d7b798-209e-5b4b-b031-bbf24df46519",
+              "name": "studio_prompt",
+              "value": "The product stands alone, centred, on a seamless light-grey studio background with a soft shadow under it and even studio light. Keep the product exactly as it is in the photo: same shape, colours, label and text.",
+              "type": "string"
+            },
+            {
+              "id": "1618f752-9830-5e59-a335-f23fc0365f28",
+              "name": "motion_prompt",
+              "value": "The product turns slowly and smoothly on a turntable, one continuous rotation. The camera stays still. Studio light, nothing else moves.",
+              "type": "string"
+            },
+            {
+              "id": "9ba190c2-23ca-5365-9788-b92553a5fed9",
+              "name": "aspect_ratio",
+              "value": "1:1",
+              "type": "string"
+            },
+            {
+              "id": "921ee1d7-2eea-5d92-8ae1-5fc36571d0d6",
+              "name": "image_model",
+              "value": "google/nano-banana-2-edit",
+              "type": "string"
+            },
+            {
+              "id": "d384348e-367f-5150-83fb-9faca7b65679",
+              "name": "video_model",
+              "value": "kling/kling-o3-standard-image-to-video",
+              "type": "string"
+            },
+            {
+              "id": "53ce0158-a371-567c-9cd6-fb9e8df27b7f",
+              "name": "backup_video_model",
+              "value": "fal-ai/kling-video/o3/standard/image-to-video",
+              "type": "string"
+            },
+            {
+              "id": "9c92bac5-7f37-5385-9d4f-bfb0946887c0",
+              "name": "duration_seconds",
+              "value": 5,
+              "type": "number"
+            },
+            {
+              "id": "bc47c893-47d8-5098-b973-7dedf8da6c5f",
+              "name": "max_cost",
+              "value": 1.5,
+              "type": "number"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "id": "f8bec7da-25d7-5b92-960d-e6ba574c0907",
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.uberllm.dev/v1/images/edits",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: $json.image_model, prompt: $json.studio_prompt, image_url: $json.product_image_url, aspect_ratio: $json.aspect_ratio, n: 1 }) }}",
+        "options": {
+          "timeout": 180000
+        }
+      },
+      "id": "81b3e513-0aea-5c66-b646-6704313f8cdf",
+      "name": "Make studio still",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uberllmApiKey01",
+          "name": "UberLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.data[0].url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          },
+          "timeout": 300000
+        }
+      },
+      "id": "4fd5ed15-82ee-5c80-beff-f305cd40199f",
+      "name": "Still file",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uberllmApiKey01",
+          "name": "UberLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.uberllm.dev/v1/files",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "e3895982-a22e-556f-8cb1-95ec73cf0ec7",
+      "name": "Upload still",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uberllmApiKey01",
+          "name": "UberLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.uberllm.dev/v1/video/generations",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            },
+            {
+              "name": "Idempotency-Key",
+              "value": "={{ $execution.id }}-spin"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: $('Settings').first().json.video_model, prompt: $('Settings').first().json.motion_prompt, image_url: $json.id, duration_seconds: $('Settings').first().json.duration_seconds, audio: false, models: [$('Settings').first().json.backup_video_model].filter(Boolean), max_cost: $('Settings').first().json.max_cost, metadata: { template: 'ad-product-spin-video' } }) }}",
+        "options": {}
+      },
+      "id": "6a407805-d327-5ad9-873e-6d7ec18b10f3",
+      "name": "Start video",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uberllmApiKey01",
+          "name": "UberLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "amount": 15,
+        "unit": "seconds"
+      },
+      "id": "fb59c7e3-f244-592d-a366-074ed94fda19",
+      "name": "Wait for video",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1320,
+        0
+      ],
+      "webhookId": "5820541c-3a47-54b6-ba52-1e9c475cbe8c"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://api.uberllm.dev/v1/video/generations/' + $json.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "cc0c6956-f2be-57ba-a306-050b9dda572b",
+      "name": "Check video job",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uberllmApiKey01",
+          "name": "UberLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "362718b4-8598-539e-92d7-4f83a2add369",
+              "leftValue": "={{ $json.status }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "succeeded"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b8088c96-1c26-59b1-8a8c-3f4f9adb447f",
+      "name": "Video ready?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1760,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7e740bbc-192e-5a4c-9e9a-f1b7910d4595",
+              "leftValue": "={{ ['queued', 'running'].includes($json.status) && $runIndex < 60 }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "29f16a6c-799c-555f-9d73-7b81e9f091a5",
+      "name": "Still making video?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1980,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "errorMessage": "={{ 'The video job ' + $json.id + ' ended as ' + $json.status + ': ' + ($json.error && $json.error.message ? $json.error.message : 'it took too long to wait for') + '. A failed or expired job costs nothing.' }}"
+      },
+      "id": "bcccf4cf-dd30-5a40-a7e2-8f3d5a014576",
+      "name": "Video not made",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        2200,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "284edc18-d98b-576a-b95a-b5ff336e0c33",
+              "name": "job_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "d3d4dd4f-2634-57f3-bbff-eb8f766d065a",
+              "name": "model",
+              "value": "={{ $json.model }}",
+              "type": "string"
+            },
+            {
+              "id": "8211a334-e1dc-568f-abb9-64aefd6e02d2",
+              "name": "url",
+              "value": "={{ $json.results[0].url }}",
+              "type": "string"
+            },
+            {
+              "id": "cfa3fd47-91be-505b-89ed-94e7ddccf60f",
+              "name": "cost_usd",
+              "value": "={{ $json.usage && $json.usage.cost_usd != null ? $json.usage.cost_usd : null }}",
+              "type": "number"
+            },
+            {
+              "id": "3aa5c90d-f90c-58c9-a294-74675f6e2a40",
+              "name": "cost_pending",
+              "value": "={{ !!($json.usage && $json.usage.cost_pending) }}",
+              "type": "boolean"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "id": "f48b8fc5-218d-59cb-8107-45d9c9fbbe5a",
+      "name": "Video result",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1980,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          },
+          "timeout": 300000
+        }
+      },
+      "id": "5f49a653-03ec-53db-a3a5-2c65392f9fdd",
+      "name": "Spin video",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2200,
+        -200
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uberllmApiKey01",
+          "name": "UberLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    }
+  ],
+  "connections": {
+    "Run workflow": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Make studio still",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Make studio still": {
+      "main": [
+        [
+          {
+            "node": "Still file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Still file": {
+      "main": [
+        [
+          {
+            "node": "Upload still",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload still": {
+      "main": [
+        [
+          {
+            "node": "Start video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start video": {
+      "main": [
+        [
+          {
+            "node": "Wait for video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for video": {
+      "main": [
+        [
+          {
+            "node": "Check video job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check video job": {
+      "main": [
+        [
+          {
+            "node": "Video ready?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Video ready?": {
+      "main": [
+        [
+          {
+            "node": "Video result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Still making video?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Still making video?": {
+      "main": [
+        [
+          {
+            "node": "Wait for video",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Video not made",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Video result": {
+      "main": [
+        [
+          {
+            "node": "Spin video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "description": "A slow studio turntable clip of a product from one photo, with one UberLLM key: a clean studio still, then a 5 s clip that starts from it."
+  },
+  "tags": []
+}

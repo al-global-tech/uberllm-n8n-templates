@@ -1,6 +1,6 @@
-# UberLLM n8n video templates
+# UberLLM n8n templates: AI video and ad creatives
 
-Five [n8n](https://n8n.io) workflows that make AI videos with one
+Nine [n8n](https://n8n.io) workflows that make AI videos and ad creatives with one
 [UberLLM](https://uberllm.dev) API key: Veo 3.1, Kling 3.0, Hailuo, Nano Banana and
 chat models through the same account and balance.
 
@@ -8,8 +8,69 @@ They use n8n's built-in **HTTP Request** node and one **Header Auth** credential
 run on n8n Cloud and self-hosted n8n with nothing to install. Each one starts the video,
 waits for it, and gives you the file as binary `data`.
 
-Every workflow here was imported into n8n 2.45.6 and run end to end against the live API
-on 2026-10-30 (with short, low-resolution settings to keep the test cheap).
+Every workflow here was imported into n8n 2.45.6 and run end to end against the live API:
+the five video templates on 2026-10-30, and the four ad workflows, the UGC product ad and
+the Shorts pipeline on 2026-11-19 (some with short, low-resolution settings to keep the
+test cheap).
+
+## Ad creatives from one product photo
+
+Four recipes for teams that make ad creatives (Meta, Instagram, TikTok). Each is an n8n
+workflow and one command of a script with no dependencies,
+[`skills/ad-creative/scripts/ad-creative.mjs`](skills/ad-creative/scripts/ad-creative.mjs).
+
+| Recipe | n8n workflow | Script | Test run on 2026-11-19 (script, default settings) |
+|---|---|---|---|
+| A person holding the product (9:16 still), a 5 s clip from it, a spoken line | [`ad-ugc-still-clip-voice.json`](workflows/ad-ugc-still-clip-voice.json) | `ugc product.jpg` | 2 min 18 s, $0.41: still 768x1376 ($0.042), clip 716x1284 5 s ($0.3675), voice 3.3 s ($0.0001) |
+| Static variations, one picture per line of a list | [`ad-static-variations.json`](workflows/ad-static-variations.json) | `variations product.jpg` | 4 pictures at 4:5 (928x1152): 3 min 13 s, $0.168 |
+| One still and one clip per row of a CSV or Google Sheet, on a schedule | [`ad-sheet-rows-to-ads.json`](workflows/ad-sheet-rows-to-ads.json) | `sheet rows.csv` | 2 rows: 13 min 13 s, $0.99 (each clip priced at $0.3675, billed $0.4531 after moving provider) |
+| Studio still of the product alone and a turntable-style clip | [`ad-product-spin-video.json`](workflows/ad-product-spin-video.json) | `spin product.jpg` | 3 min 11 s, $0.41: still 1024x1024, clip 960x960 5 s |
+
+Models: `google/nano-banana-2-edit` (still), `kling/kling-o3-standard-image-to-video`
+(clip, with `fal-ai/kling-video/o3/standard/image-to-video` as backup) and
+`venice/kokoro-tts` (voice). Change them in **Settings** or with `--image-model`,
+`--video-model`, `--voice-model`. The sample product is [`samples/bottle.jpg`](samples/bottle.jpg)
+and the sample sheet is [`samples/ad-rows.csv`](samples/ad-rows.csv).
+
+```sh
+export UBERLLM_API_KEY=ull_...        # from https://uberllm.dev/dashboard/keys
+curl -O https://raw.githubusercontent.com/PSA-Team-source/uberllm-n8n-templates/main/skills/ad-creative/scripts/ad-creative.mjs
+node ad-creative.mjs ugc product.jpg --dry-run   # prices the run; makes nothing, charges nothing
+node ad-creative.mjs ugc product.jpg --merge     # --merge joins clip and voice with ffmpeg
+```
+
+Good to know:
+
+- **A clip has the shape of its still.** These image-to-video models take no aspect ratio,
+  so the still is made at 9:16, 4:5 or 1:1 first.
+- **Result links are short-lived** (pictures about 15 minutes, video about 3 hours) and
+  need your key. The workflows and the script download every file at once, and upload the
+  still as a file (`POST /v1/files`) before they start the clip.
+- **Joining is yours.** The API does not join clips, put captions on a video or lip-sync.
+  A timed caption file (`srt`, `vtt`) comes from `POST /v1/audio/transcriptions` with the
+  voice track. Clip plus voice is one command:
+  `ffmpeg -i clip.mp4 -i voice.mp3 -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -af apad -shortest ad.mp4`
+- **A picture request can time out** (504, not charged). The workflows and the script try
+  up to three times.
+- **The sheet workflow** remembers finished rows when it runs from its schedule (active
+  workflow). A manual test run does not save that memory, so it makes the same rows again.
+  A Google Sheet works once it is published as CSV (File → Share → Publish to web → CSV).
+- **Before you run ads:** people in these pictures are AI-generated. Label them where the
+  platform or the law asks, and never present them as real customers or as a testimonial.
+  Make no health claims and no before/after pictures, and read the terms of the models you
+  use. More: [uberllm.dev/ai-ad-creative-api](https://uberllm.dev/ai-ad-creative-api).
+
+### As a skill for Claude Code and other coding agents
+
+```sh
+npx skills add PSA-Team-source/uberllm-n8n-templates --skill ad-creative
+```
+
+or copy [`skills/ad-creative`](skills/ad-creative) into `~/.claude/skills/` (Claude Code) or
+your agent's skills folder. Then ask for "ad creatives from this product photo". The skill
+prices a run first and asks before it spends.
+
+## The video templates
 
 | File | What it does | Default run |
 |---|---|---|
@@ -75,16 +136,18 @@ API reference: [uberllm.dev/docs/media](https://uberllm.dev/docs/media).
 
 ## What you pay
 
-- The most a job can cost is set before it starts: the start reply carries `max_cost_usd`,
-  which is held from your balance, and the job is never billed more. Each **Settings** node
-  has a `max_cost`; a job that could cost more is refused before anything is charged.
+- The start reply shows the price now (`estimated_cost_usd`). The bill is what the provider
+  charged, which can differ if the job moves to another provider (on 2026-11-19 two test
+  clips priced at $0.3675 were billed $0.4531).
+- Your ceiling is `max_cost` in each **Settings** node: a job that would cost more is refused
+  or cancelled at no charge.
 - A video that fails or runs out of time costs nothing: the whole hold comes back.
 - Credit you buy does not expire while your account is open.
 - No UberLLM fee on requests. Adding credit by card costs 5.5% + $0.50.
 
 ## Build the files
 
-The workflow files are generated so all five stay consistent:
+The workflow files are generated so all nine stay consistent:
 
 ```sh
 python3 tools/build.py            # reads live prices for the notes from the public models list

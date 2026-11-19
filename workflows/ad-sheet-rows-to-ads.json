@@ -1,0 +1,936 @@
+{
+  "name": "UberLLM: Google Sheet or CSV rows → one image + video ad per row, on a schedule",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Sheet rows → one image + video ad per row, on a schedule (UberLLM)\nEach row of a sheet becomes a still and a clip. Add rows whenever you like; the daily run makes only the new ones.\n1. **Read rows** fetches the sheet as CSV. **Rows to make** skips rows made before and takes at most `max_rows_per_run`.\n2. **Make row still**: `google/nano-banana-2-edit` puts the product in the row's scene, in the row's shape.\n3. **Start row video**: `kling/kling-o3-standard-image-to-video` animates the still (the clip takes the still's shape).\n4. **Rows made** lists every row with its `still` and `clip` as binary data.\nA row that fails does not stop the others, costs nothing for the failed step, and is tried again on the next run.\n\n### Your sheet\nColumns (first line): `name, image_url, scene, motion, aspect_ratio`. Only `image_url` is required (a public `https://` link to the product photo).\n- **Google Sheets**: File → Share → Publish to web → pick the tab → *Comma-separated values (.csv)* → Publish, and paste that link into `csv_url`. No Google credential is needed. Anyone with the link can read a published sheet.\n- Or any `https://` link to a CSV file.\n\n### Setup (2 minutes)\n1. Get a key at https://uberllm.dev (sign in with your email, add credit).\n2. Open any **UberLLM** HTTP node → Credential → **Create new** → *Header Auth*:\n   - Name: `Authorization`\n   - Value: `Bearer YOUR_UBERLLM_KEY`\n   Every UberLLM node in this workflow uses this one credential.\n3. Edit the **Settings** node, then click **Execute workflow**.\n\nTo run it every day, switch the workflow to **Active**. The schedule is in **Every day**.\n\n### Price\nListed on 2026-11-19: 1 still at $0.04 each + a 5 s clip at $0.07 per second per row = about $0.39. Live prices: https://uberllm.dev/ai-ad-creative-api\n\n### What you pay\n- The start reply shows the price now (`estimated_cost_usd`). The bill is what the provider charged, which can differ if the job moves to another provider.\n- Your ceiling is `max_cost` in **Settings**: a job that would cost more is refused or cancelled at no charge.\n- A video that fails or runs out of time costs nothing: the whole hold comes back.\n- Credit you buy does not expire while your account is open.\n- No UberLLM fee on requests. Adding credit by card costs 5.5% + $0.50.\n\n### Files are short-lived\nPicture links are kept about 15 minutes and video links about 3 hours, and they need your key. The workflow downloads every result at once, so the last node holds the files as binary data: send them to Drive, S3 or your ad tool from there.\n\n### Why the still is uploaded\nA result link needs your key, so a video model cannot open it. **Upload still** puts the picture in your UberLLM files (kept 24 hours) and the clip starts from that upload.\n",
+        "height": 1320,
+        "width": 640
+      },
+      "id": "0f388fe2-7aad-5b88-80c1-a703b674f865",
+      "name": "About",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -680,
+        -360
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Before you run ads\n- People in these pictures and clips are AI-generated. Label them as AI where the platform or the law asks, and never present one as a real customer or a testimonial.\n- No health claims and no before/after pairs: Meta's ad rules apply whatever tool made the creative.\n- Check the model maker's terms for commercial use, and use only product photos you have the rights to.\nLinks to Meta's rules and each maker's terms: https://uberllm.dev/ai-ad-creative-api\n",
+        "height": 330,
+        "width": 620,
+        "color": 3
+      },
+      "id": "74c25f59-2fe0-5cc3-aaa8-46898351e69c",
+      "name": "Before you run ads",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        620
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "aa1acf6d-615d-5891-9216-486851e5ba84",
+      "name": "Run workflow",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAtHour": 9,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "05ff8fe1-ff7b-5fb7-9d90-8b1895b86de4",
+      "name": "Every day",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a13e1b47-82f0-5547-8f5f-bb5b4dd81ab3",
+              "name": "csv_url",
+              "value": "https://raw.githubusercontent.com/PSA-Team-source/uberllm-n8n-templates/main/samples/ad-rows.csv",
+              "type": "string"
+            },
+            {
+              "id": "a84db3fa-68bc-581d-9237-d01067bceb49",
+              "name": "max_rows_per_run",
+              "value": 5,
+              "type": "number"
+            },
+            {
+              "id": "4004d00c-3c21-5651-8353-3fef9bd8003a",
+              "name": "image_model",
+              "value": "google/nano-banana-2-edit",
+              "type": "string"
+            },
+            {
+              "id": "f7dd8a85-f364-577b-b551-cc7d14a6eda8",
+              "name": "video_model",
+              "value": "kling/kling-o3-standard-image-to-video",
+              "type": "string"
+            },
+            {
+              "id": "ede860fd-2942-59fe-9125-1619a5ae4b07",
+              "name": "backup_video_model",
+              "value": "fal-ai/kling-video/o3/standard/image-to-video",
+              "type": "string"
+            },
+            {
+              "id": "9e263526-3872-5601-b7f8-7ef43341d557",
+              "name": "duration_seconds",
+              "value": 5,
+              "type": "number"
+            },
+            {
+              "id": "00f26cf4-7f6d-5644-9578-d5ab5e593787",
+              "name": "max_cost_per_clip",
+              "value": 1.5,
+              "type": "number"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "id": "65f06b37-7ffc-57a2-86b8-c94b2ca2cb25",
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.csv_url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text",
+              "outputPropertyName": "data"
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "a954e345-00f4-543d-b901-0a22c78d36c3",
+      "name": "Read rows",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Reads the CSV text, skips rows this workflow already made (remembered in the workflow's static\n// data, which n8n saves for active, scheduled runs; a manual test run starts fresh each time)\n// and passes on at most max_rows_per_run rows.\nconst s = $('Settings').first().json;\nconst text = String($json.data ?? '').replace(/^﻿/, '');\nconst rows = [];\nlet row = [], cell = '', quoted = false;\nfor (let i = 0; i < text.length; i++) {\n  const c = text[i];\n  if (quoted) {\n    if (c === '\"' && text[i + 1] === '\"') { cell += '\"'; i++; } else if (c === '\"') quoted = false; else cell += c;\n  } else if (c === '\"') quoted = true;\n  else if (c === ',') { row.push(cell); cell = ''; }\n  else if (c === '\\n' || c === '\\r') {\n    if (c === '\\r' && text[i + 1] === '\\n') i++;\n    row.push(cell); cell = '';\n    if (row.some((x) => x.trim())) rows.push(row);\n    row = [];\n  } else cell += c;\n}\nrow.push(cell);\nif (row.some((x) => x.trim())) rows.push(row);\nif (rows.length < 2) throw new Error('No rows found. The first line must name the columns: name,image_url,scene,motion,aspect_ratio');\nconst head = rows[0].map((h) => h.trim().toLowerCase().replace(/\\s+/g, '_'));\nif (!head.includes('image_url')) throw new Error('The sheet needs an image_url column (a public https:// link to the product photo).');\nconst done = ($getWorkflowStaticData('global').done ??= {});\nconst out = [];\nfor (const r of rows.slice(1)) {\n  const o = Object.fromEntries(head.map((h, i) => [h, (r[i] ?? '').trim()]));\n  if (!o.image_url) continue;\n  const key = [o.name, o.image_url, o.scene, o.motion, o.aspect_ratio].join('|');\n  if (done[key]) continue;\n  out.push({ json: {\n    key,\n    name: o.name || `row ${out.length + 1}`,\n    image_url: o.image_url,\n    scene_prompt: (o.scene || 'The product stands alone on a seamless light-grey studio background with a soft shadow.') + ' Keep the product exactly as it is in the photo: same shape, colours, label and text.',\n    motion_prompt: o.motion || 'The camera pushes in slowly toward the product. Nothing else moves.',\n    aspect_ratio: o.aspect_ratio || '9:16',\n  } });\n  if (out.length >= (Number(s.max_rows_per_run) || 5)) break;\n}\nreturn out;"
+      },
+      "id": "c0812955-2e74-54b2-85de-4933e749424d",
+      "name": "Rows to make",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "4f28ea98-a3f3-5be2-ae50-cd6d171ba7af",
+      "name": "One row at a time",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.uberllm.dev/v1/images/edits",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: $('Settings').first().json.image_model, prompt: $json.scene_prompt, image_url: $json.image_url, aspect_ratio: $json.aspect_ratio, n: 1 }) }}",
+        "options": {
+          "timeout": 180000
+        }
+      },
+      "id": "4d4b4dcd-fe9d-5719-9bf2-89f98c147a98",
+      "name": "Make row still",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        100
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uberllmApiKey01",
+          "name": "UberLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "fc6e8bda-6a29-50b0-9762-27287b3146a9",
+              "leftValue": "={{ !!($json.data && $json.data[0] && $json.data[0].url) }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "531db85e-816f-5233-a561-ac7344294307",
+      "name": "Still made?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1320,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.data[0].url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          },
+          "timeout": 300000
+        }
+      },
+      "id": "e6b6e23c-e595-5119-9662-e6679f6a0f3b",
+      "name": "Row still file",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uberllmApiKey01",
+          "name": "UberLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.uberllm.dev/v1/files",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "ec8631cb-a94e-57bb-acbc-216fe3ea1dac",
+      "name": "Upload row still",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uberllmApiKey01",
+          "name": "UberLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.uberllm.dev/v1/video/generations",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            },
+            {
+              "name": "Idempotency-Key",
+              "value": "={{ $execution.id }}-row-{{ $('One row at a time').context.currentRunIndex }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: $('Settings').first().json.video_model, prompt: $('One row at a time').first().json.motion_prompt, image_url: $json.id, duration_seconds: $('Settings').first().json.duration_seconds, audio: false, models: [$('Settings').first().json.backup_video_model].filter(Boolean), max_cost: $('Settings').first().json.max_cost_per_clip, metadata: { template: 'ad-sheet-rows-to-ads' } }) }}",
+        "options": {}
+      },
+      "id": "dbbf4a36-5a1e-539a-81b5-0967fa7b93c4",
+      "name": "Start row video",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1980,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uberllmApiKey01",
+          "name": "UberLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "5fe987ff-febd-53ab-babf-b380e02e4c5a",
+              "leftValue": "={{ !!$json.id }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "22716481-ae61-5de1-8fe9-7ab8baff6ac3",
+      "name": "Job started?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// This row was not made (nothing was charged for the step that failed). It is not remembered\n// as done, so the next run tries it again; the other rows carry on.\nconst row = $('One row at a time').first().json;\nconst j = $json;\nconst why = j.error?.message || (typeof j.error === 'string' ? j.error : null) || j.message\n  || (j.status ? `the video job ended as ${j.status}` : 'the step did not answer');\nreturn [{ json: { name: row.name, made: false, error: String(why) } }];"
+      },
+      "id": "8cfb1ab9-54b7-5cb3-a032-bdedc6e522f6",
+      "name": "Row not made",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2420,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 15,
+        "unit": "seconds"
+      },
+      "id": "ce091b92-5c22-55e8-9947-52999cb1090d",
+      "name": "Wait for clip",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2420,
+        0
+      ],
+      "webhookId": "928322a2-4e9b-5ea1-abde-8c64dba204e7"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://api.uberllm.dev/v1/video/generations/' + $json.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "dafff007-934c-51b7-afda-316abdf7d990",
+      "name": "Check clip job",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2640,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uberllmApiKey01",
+          "name": "UberLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a155b272-89ba-58be-b4ff-080878a5be03",
+              "leftValue": "={{ $json.status }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "succeeded"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "23d4949d-f664-5c09-a627-8f0042cb4a81",
+      "name": "Clip ready?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2860,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "53d60fbf-5536-51e1-b3d4-67cef470dbb3",
+              "leftValue": "={{ ['queued', 'running'].includes($json.status) && (Date.now() / 1000 - $json.created) < 1200 }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "5dad7d91-7a33-5547-b85f-0a18e607b86d",
+      "name": "Still making clip?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3080,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8f14bdb5-a5ca-5aef-bff2-e02461fb5cc5",
+              "name": "job_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "d77c1f7e-e1dc-5481-8cb6-f678ea422764",
+              "name": "model",
+              "value": "={{ $json.model }}",
+              "type": "string"
+            },
+            {
+              "id": "2031d2e5-8bc7-5fcc-a057-b127a8dcc7a1",
+              "name": "url",
+              "value": "={{ $json.results[0].url }}",
+              "type": "string"
+            },
+            {
+              "id": "681924f5-2d65-5c09-8020-3d062d69b7cc",
+              "name": "cost_usd",
+              "value": "={{ $json.usage && $json.usage.cost_usd != null ? $json.usage.cost_usd : null }}",
+              "type": "number"
+            },
+            {
+              "id": "0b34541c-4f97-5cca-b2a7-3aa2bf59f2cd",
+              "name": "cost_pending",
+              "value": "={{ !!($json.usage && $json.usage.cost_pending) }}",
+              "type": "boolean"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "id": "3308882e-1614-56dd-b10a-f6f97a753158",
+      "name": "Clip result",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3080,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          },
+          "timeout": 300000
+        }
+      },
+      "id": "646adbe2-db62-5d49-8ca1-caea2f926465",
+      "name": "Row clip",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3300,
+        -200
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uberllmApiKey01",
+          "name": "UberLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Remember the row so the next scheduled run skips it, and pass on its still and clip.\nconst row = $('One row at a time').first().json;\n$getWorkflowStaticData('global').done ??= {};\n$getWorkflowStaticData('global').done[row.key] = new Date().toISOString();\nconst clip = $input.first();\nreturn [{\n  json: { name: row.name, made: true, aspect_ratio: row.aspect_ratio, clip_url: clip.json.url, clip_cost_usd: clip.json.cost_usd,\n          clip_cost_pending: clip.json.cost_pending, still_cost_usd: $('Make row still').first().json.usage?.cost_usd ?? null },\n  binary: { still: $('Row still file').first().binary.data, clip: clip.binary.data },\n}];"
+      },
+      "id": "36006526-da62-5a84-af59-106480edd67a",
+      "name": "Row made",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3520,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Every row of this run (made ones carry `still` and `clip` as binary), then one summary item.\nconst items = $input.all();\nconst made = items.filter((i) => i.json.made);\nreturn [...items, { json: {\n  summary: true,\n  made: made.length,\n  not_made: items.filter((i) => i.json.made === false).map((i) => ({ name: i.json.name, error: i.json.error })),\n} }];"
+      },
+      "id": "03fe8949-e985-5bd8-8352-47276b9b87f9",
+      "name": "Rows made",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        -200
+      ]
+    }
+  ],
+  "connections": {
+    "Every day": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run workflow": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Read rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read rows": {
+      "main": [
+        [
+          {
+            "node": "Rows to make",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rows to make": {
+      "main": [
+        [
+          {
+            "node": "One row at a time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One row at a time": {
+      "main": [
+        [
+          {
+            "node": "Rows made",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Make row still",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Make row still": {
+      "main": [
+        [
+          {
+            "node": "Still made?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Still made?": {
+      "main": [
+        [
+          {
+            "node": "Row still file",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Row not made",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Row still file": {
+      "main": [
+        [
+          {
+            "node": "Upload row still",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload row still": {
+      "main": [
+        [
+          {
+            "node": "Start row video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start row video": {
+      "main": [
+        [
+          {
+            "node": "Job started?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Job started?": {
+      "main": [
+        [
+          {
+            "node": "Wait for clip",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Row not made",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for clip": {
+      "main": [
+        [
+          {
+            "node": "Check clip job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check clip job": {
+      "main": [
+        [
+          {
+            "node": "Clip ready?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clip ready?": {
+      "main": [
+        [
+          {
+            "node": "Clip result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Still making clip?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Still making clip?": {
+      "main": [
+        [
+          {
+            "node": "Wait for clip",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Row not made",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clip result": {
+      "main": [
+        [
+          {
+            "node": "Row clip",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Row clip": {
+      "main": [
+        [
+          {
+            "node": "Row made",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Row made": {
+      "main": [
+        [
+          {
+            "node": "One row at a time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Row not made": {
+      "main": [
+        [
+          {
+            "node": "One row at a time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "description": "Each row of a Google Sheet (published as CSV) or any CSV link becomes a product still and a clip, on a daily schedule, with one UberLLM key. Rows made before are skipped; a row that fails does not stop the others."
+  },
+  "tags": []
+}

@@ -3,7 +3,7 @@
   "nodes": [
     {
       "parameters": {
-        "content": "## Faceless Shorts pipeline (UberLLM)\nOne key does all three steps:\n1. **Write script**: a cheap chat model (`deepseek/deepseek-v3.2`) writes the title, caption, hashtags and the scenes.\n2. **Make scene image**: `venice/z-image-turbo` draws each scene as a vertical picture.\n3. **Start scene video**: `fal-ai/minimax/hailuo-02/standard/image-to-video` animates each picture into a ~6 s clip.\nScenes run one after another, so a run with 3 scenes takes a few minutes.\n\n### Setup (2 minutes)\n1. Get a key at https://uberllm.dev (sign in with your email, add credit).\n2. Open any **UberLLM** HTTP node → Credential → **Create new** → *Header Auth*:\n   - Name: `Authorization`\n   - Value: `Bearer YOUR_UBERLLM_KEY`\n   Every UberLLM node in this workflow uses this one credential.\n3. Edit the **Settings** node, then click **Execute workflow**.\n\n### Price per scene\nImage $0.0082 + 6 s clip at 768P $0.2295 = about $0.2377 per scene; the script costs a fraction of a cent (prices on 2026-10-30).\n\n### Output\nOne item: `title`, `caption`, `hashtags`, `clips[]` (narration, link, cost) and each clip as binary `scene_1`, `scene_2`… Join them with your editor or an ffmpeg step, add the narration with a speech model (`POST /v1/audio/speech`, same key), and post.\n\n### What you pay\n- The job's cost is shown before it starts (`max_cost_usd` on the reply) and held from your balance. It is never billed more than that.\n- A video that fails or runs out of time costs nothing: the whole hold comes back.\n- Credit you buy does not expire while your account is open.\n- No UberLLM fee on requests. Adding credit by card costs 5.5% + $0.50.\n",
+        "content": "## Faceless Shorts pipeline (UberLLM)\nOne key does all three steps:\n1. **Write script**: a cheap chat model (`deepseek/deepseek-v3.2`) writes the title, caption, hashtags and the scenes.\n2. **Make scene image**: `venice/z-image-turbo` draws each scene as a vertical picture.\n3. **Start scene video**: `fal-ai/minimax/hailuo-02/standard/image-to-video` animates each picture into a ~6 s clip.\nScenes run one after another, so a run with 3 scenes takes a few minutes.\n\n### Setup (2 minutes)\n1. Get a key at https://uberllm.dev (sign in with your email, add credit).\n2. Open any **UberLLM** HTTP node → Credential → **Create new** → *Header Auth*:\n   - Name: `Authorization`\n   - Value: `Bearer YOUR_UBERLLM_KEY`\n   Every UberLLM node in this workflow uses this one credential.\n3. Edit the **Settings** node, then click **Execute workflow**.\n\n### Price per scene\nImage $0.004 + 6 s clip at 768P $0.2295 = about $0.2335 per scene; the script costs a fraction of a cent (prices on 2026-11-19).\n\n### Output\nOne item: `title`, `caption`, `hashtags`, `clips[]` (narration, link, cost) and each clip as binary `scene_1`, `scene_2`… Join them with your editor or an ffmpeg step, add the narration with a speech model (`POST /v1/audio/speech`, same key), and post.\n\n### What you pay\n- The start reply shows the price now (`estimated_cost_usd`). The bill is what the provider charged, which can differ if the job moves to another provider.\n- Your ceiling is `max_cost` in **Settings**: a job that would cost more is refused or cancelled at no charge.\n- A video that fails or runs out of time costs nothing: the whole hold comes back.\n- Credit you buy does not expire while your account is open.\n- No UberLLM fee on requests. Adding credit by card costs 5.5% + $0.50.\n",
         "height": 980,
         "width": 560
       },
@@ -221,7 +221,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: $('Settings').first().json.video_model, prompt: $('One scene at a time').item.json.motion_prompt, image_url: $json.data[0].url, duration_seconds: $('Settings').first().json.duration_seconds, resolution: $('Settings').first().json.resolution, max_cost: $('Settings').first().json.max_cost_per_clip, metadata: { template: 'faceless-shorts-pipeline', scene: String($('One scene at a time').item.json.scene) } }) }}",
+        "jsonBody": "={{ JSON.stringify({ model: $('Settings').first().json.video_model, prompt: $('One scene at a time').item.json.motion_prompt, image_url: $json.id, duration_seconds: $('Settings').first().json.duration_seconds, resolution: $('Settings').first().json.resolution, max_cost: $('Settings').first().json.max_cost_per_clip, metadata: { template: 'faceless-shorts-pipeline', scene: String($('One scene at a time').item.json.scene) } }) }}",
         "options": {}
       },
       "id": "a30cd991-1e87-57d6-902e-236da0c030be",
@@ -229,7 +229,98 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
+        1760,
+        100
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uberllmApiKey01",
+          "name": "UberLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.data[0].url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          },
+          "timeout": 300000
+        }
+      },
+      "id": "ee5894a3-d9b1-589d-9fc3-7cb074f431a7",
+      "name": "Scene image file",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
         1320,
+        100
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uberllmApiKey01",
+          "name": "UberLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.uberllm.dev/v1/files",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "8a66c7d4-70f3-5150-98d5-1f66518617f6",
+      "name": "Upload scene image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
         100
       ],
       "credentials": {
@@ -252,7 +343,7 @@
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        1540,
+        1980,
         100
       ],
       "webhookId": "dbae81d8-2fd1-5024-8918-86c551d5a67c"
@@ -279,7 +370,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1760,
+        2200,
         100
       ],
       "credentials": {
@@ -321,7 +412,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1980,
+        2420,
         100
       ]
     },
@@ -354,7 +445,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        2200,
+        2640,
         260
       ]
     },
@@ -367,7 +458,7 @@
       "type": "n8n-nodes-base.stopAndError",
       "typeVersion": 1,
       "position": [
-        2420,
+        2860,
         360
       ]
     },
@@ -428,7 +519,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        2200,
+        2640,
         -100
       ]
     },
@@ -462,7 +553,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2420,
+        2860,
         -100
       ],
       "credentials": {
@@ -553,6 +644,28 @@
       ]
     },
     "Make scene image": {
+      "main": [
+        [
+          {
+            "node": "Scene image file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scene image file": {
+      "main": [
+        [
+          {
+            "node": "Upload scene image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload scene image": {
       "main": [
         [
           {

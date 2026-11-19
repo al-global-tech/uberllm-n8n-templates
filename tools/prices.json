@@ -1,5 +1,5 @@
 {
-  "checked": "2026-10-30",
+  "checked": "2026-11-19",
   "models": {
     "fal-ai/veo3.1/fast": {
       "name": "Veo 3.1 Fast Text to Video",
@@ -212,7 +212,7 @@
     "fal-ai/kling-video/v3/standard/image-to-video": {
       "name": "Kling 3 Standard Image to Video",
       "unit": "second",
-      "usd": 0.0714,
+      "usd": 0.07,
       "rates": [
         {
           "audio": false,
@@ -230,7 +230,7 @@
     "fal-ai/kling-video/v3/pro/image-to-video": {
       "name": "Kling 3 Pro Image to Video",
       "unit": "second",
-      "usd": 0.0952,
+      "usd": 0.09,
       "rates": [
         {
           "audio": false,
@@ -268,14 +268,14 @@
     "venice/z-image-turbo": {
       "name": "Z-Image Turbo (Venice)",
       "unit": "image",
-      "usd": 0.0082,
+      "usd": 0.004,
       "rates": null,
       "price_now": null
     },
     "google/nano-banana-2-edit": {
       "name": "Nano Banana 2 (image-to-image)",
       "unit": "image",
-      "usd": 0.07,
+      "usd": 0.04,
       "rates": null,
       "price_now": null
     },
@@ -285,9 +285,9 @@
       "usd": null,
       "rates": null,
       "price_now": {
-        "input_usd_per_mtok": 0.0084,
-        "output_usd_per_mtok": 0.0126,
-        "cache_read_usd_per_mtok": 0.00084
+        "input_usd_per_mtok": 0.03276,
+        "output_usd_per_mtok": 0.04788,
+        "cache_read_usd_per_mtok": 0.01638
       }
     },
     "google/gemini-2.5-flash": {
@@ -296,10 +296,42 @@
       "usd": null,
       "rates": null,
       "price_now": {
-        "input_usd_per_mtok": 0.051,
-        "output_usd_per_mtok": 0.425,
-        "cache_read_usd_per_mtok": 0.0051
+        "input_usd_per_mtok": 0.0126,
+        "output_usd_per_mtok": 0.105,
+        "cache_read_usd_per_mtok": 0.00126
       }
+    },
+    "kling/kling-o3-standard-image-to-video": {
+      "name": "Kling O3 Standard (image-to-video)",
+      "unit": "second",
+      "usd": 0.07,
+      "rates": null,
+      "price_now": null
+    },
+    "fal-ai/kling-video/o3/standard/image-to-video": {
+      "name": "Kling O3 Standard Image to Video",
+      "unit": "second",
+      "usd": 0.07,
+      "rates": [
+        {
+          "audio": false,
+          "list_usd_per_second": 0.084,
+          "usd_per_second": 0.0714
+        },
+        {
+          "audio": true,
+          "list_usd_per_second": 0.112,
+          "usd_per_second": 0.0952
+        }
+      ],
+      "price_now": null
+    },
+    "venice/kokoro-tts": {
+      "name": "Kokoro Text to Speech (Venice)",
+      "unit": "1K characters",
+      "usd": 0.00294,
+      "rates": null,
+      "price_now": null
     }
   }
 }
