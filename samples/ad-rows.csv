@@ -1,0 +1,3 @@
+name,image_url,scene,motion,aspect_ratio
+Bottle on a desk,https://raw.githubusercontent.com/PSA-Team-source/uberllm-n8n-templates/main/samples/bottle.jpg,"The product stands on a tidy desk next to a laptop, soft morning light, free space above for a headline.","The camera pushes in slowly toward the product. Nothing else moves.",9:16
+Bottle on a trail,https://raw.githubusercontent.com/PSA-Team-source/uberllm-n8n-templates/main/samples/bottle.jpg,"The product stands on a flat rock beside a hiking trail, pine trees behind, late-afternoon sun.","A slow sideways camera move past the product while the trees sway slightly.",4:5
