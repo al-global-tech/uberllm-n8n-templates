@@ -322,7 +322,7 @@ def t_image_to_video(prices):
             + PROMISES + "\n" + FILES)
     t = manual(wf, (0, 0))
     s = settings(wf, 'Settings', (220, 0), [
-        ('image_url', 'https://raw.githubusercontent.com/PSA-Team-source/uberllm-n8n-templates/main/samples/scene.jpg', 'string'),
+        ('image_url', 'https://raw.githubusercontent.com/al-global-tech/uberllm-n8n-templates/main/samples/scene.jpg', 'string'),
         ('prompt', 'The camera slowly pushes in while rain runs down the window and the lamp light flickers', 'string'),
         ('model', m, 'string'),
         ('duration_seconds', 5, 'number'),
@@ -468,7 +468,7 @@ def t_ugc(prices):
             + PROMISES + "\n" + FILES)
     t = manual(wf, (0, 0))
     s = settings(wf, 'Settings', (220, 0), [
-        ('product_image_url', 'https://raw.githubusercontent.com/PSA-Team-source/uberllm-n8n-templates/main/samples/product.jpg', 'string'),
+        ('product_image_url', 'https://raw.githubusercontent.com/al-global-tech/uberllm-n8n-templates/main/samples/product.jpg', 'string'),
         ('product_name', 'Amber glass serum bottle', 'string'),
         ('audience', 'women 25-40 who care about skincare', 'string'),
         ('vision_model', vis, 'string'),
@@ -576,7 +576,7 @@ AD_EDIT = 'google/nano-banana-2-edit'
 AD_VIDEO = 'kling/kling-o3-standard-image-to-video'
 AD_VIDEO_BACKUP = 'fal-ai/kling-video/o3/standard/image-to-video'
 AD_VOICE = 'venice/kokoro-tts'
-RAW = 'https://raw.githubusercontent.com/PSA-Team-source/uberllm-n8n-templates/main'
+RAW = 'https://raw.githubusercontent.com/al-global-tech/uberllm-n8n-templates/main'
 KEEP = 'Keep the product exactly as it is in the photo: same shape, colours, label and text.'
 AD_PAGE = 'https://uberllm.dev/ai-ad-creative-api'
 

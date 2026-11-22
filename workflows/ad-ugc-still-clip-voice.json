@@ -51,7 +51,7 @@
             {
               "id": "381d6276-d553-5d07-abec-4f1a9812c814",
               "name": "product_image_url",
-              "value": "https://raw.githubusercontent.com/PSA-Team-source/uberllm-n8n-templates/main/samples/bottle.jpg",
+              "value": "https://raw.githubusercontent.com/al-global-tech/uberllm-n8n-templates/main/samples/bottle.jpg",
               "type": "string"
             },
             {

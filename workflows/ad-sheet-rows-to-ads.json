@@ -73,7 +73,7 @@
             {
               "id": "a13e1b47-82f0-5547-8f5f-bb5b4dd81ab3",
               "name": "csv_url",
-              "value": "https://raw.githubusercontent.com/PSA-Team-source/uberllm-n8n-templates/main/samples/ad-rows.csv",
+              "value": "https://raw.githubusercontent.com/al-global-tech/uberllm-n8n-templates/main/samples/ad-rows.csv",
               "type": "string"
             },
             {

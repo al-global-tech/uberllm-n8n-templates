@@ -1,18 +1,18 @@
 ---
 name: ad-creative
-description: Make ad creatives from one product photo with the UberLLM API - a still of a person holding the product, a 9:16 clip made from it and a voice-over line; a batch of static variations from a list; one image and one clip per row of a CSV or Google Sheet; or a studio spin video. Use when the user asks for ad creatives, UGC-style product ads, static ad variations, Meta, Instagram or TikTok ad images or videos, or a product spin video, and has (or can give) a product photo.
+description: Make ad creatives from one product photo with the MartLLM API - a still of a person holding the product, a 9:16 clip made from it and a voice-over line; a batch of static variations from a list; one image and one clip per row of a CSV or Google Sheet; or a studio spin video. Use when the user asks for ad creatives, UGC-style product ads, static ad variations, Meta, Instagram or TikTok ad images or videos, or a product spin video, and has (or can give) a product photo.
 license: MIT
 ---
 
 # Ad creatives from one product photo
 
 `scripts/ad-creative.mjs` does the work. It needs Node 18 or newer and nothing else, and
-calls `https://api.uberllm.dev` with the key in `UBERLLM_API_KEY`.
+calls `https://api.martllm.com` with the key in `UBERLLM_API_KEY`.
 
 ## Before you run it
 
 1. **Key.** The script reads `UBERLLM_API_KEY` from the environment. If it is not set, ask
-   the user to get a key at https://uberllm.dev/dashboard/keys (credit from $5) and to set
+   the user to get a key at https://martllm.com/dashboard/keys (credit from $5) and to set
    it themselves. Never print the key, never write it into a file, never put it in a command.
 2. **Photo.** A path on this computer or a public `https://` link. A plain background works
    best. Use only photos the user has the rights to.
@@ -80,18 +80,18 @@ $0.99; the spin took 3 min 11 s and $0.41. Prices and times change: trust `--dry
   read the terms of the models they use before an ad runs.
 - The API does not join clips, put captions on a video or lip-sync a face. Joining is
   `ffmpeg`. A timed caption file comes from the transcription endpoint:
-  `curl https://api.uberllm.dev/v1/audio/transcriptions -H "Authorization: Bearer $UBERLLM_API_KEY" -F file=@voice.mp3 -F model=venice/whisper-large-v3 -F response_format=srt`
+  `curl https://api.martllm.com/v1/audio/transcriptions -H "Authorization: Bearer $UBERLLM_API_KEY" -F file=@voice.mp3 -F model=venice/whisper-large-v3 -F response_format=srt`
 
 ## If something fails
 
 - `401`: the key is missing or wrong. `402`: no credit; the user adds some at
-  https://uberllm.dev/dashboard/billing.
+  https://martllm.com/dashboard/billing.
 - `400 max_cost_too_low`: the clip can cost more than `--max-cost`; nothing was charged.
   Show the user the price and ask before raising it.
 - "no provider" or "provider could not complete": not charged. Try again, or pass another
-  `--video-model` from `GET https://api.uberllm.dev/v1/models?type=video`.
+  `--video-model` from `GET https://api.martllm.com/v1/models?type=video`.
 - A refusal that names content rules: change the scene or the line; do not try to get
   around it.
 
-API reference: https://uberllm.dev/docs/media ·
-workflows guide: https://uberllm.dev/docs/ad-creative-workflows
+API reference: https://martllm.com/docs/media ·
+workflows guide: https://martllm.com/docs/ad-creative-workflows

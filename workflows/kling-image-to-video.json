@@ -35,7 +35,7 @@
             {
               "id": "be79c57b-82e7-5bbf-ba7b-4c6e4b9e73a1",
               "name": "image_url",
-              "value": "https://raw.githubusercontent.com/PSA-Team-source/uberllm-n8n-templates/main/samples/scene.jpg",
+              "value": "https://raw.githubusercontent.com/al-global-tech/uberllm-n8n-templates/main/samples/scene.jpg",
               "type": "string"
             },
             {
