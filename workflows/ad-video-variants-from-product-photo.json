@@ -1,0 +1,1259 @@
+{
+  "name": "Make several video ad versions from one product photo, with the price shown first (MartLLM)",
+  "nodes": [
+    {
+      "id": "fbace560-d15c-59ee-afe9-38790795b480",
+      "parameters": {
+        "formTitle": "Make video ads from a product photo",
+        "formDescription": "Upload one clear photo of your product and say what the ads should get across. You see the price of every version before anything is made.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Product photo",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "acceptFileTypes": ".jpg, .jpeg, .png, .webp",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Product name",
+              "placeholder": "e.g. Canvas Runner sneaker",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "What should the ads say?",
+              "fieldType": "textarea",
+              "placeholder": "e.g. Light, breathable, machine washable. For busy commuters. Casual and honest.",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "How many versions?",
+              "fieldType": "dropdown",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "2"
+                  },
+                  {
+                    "option": "3"
+                  },
+                  {
+                    "option": "4"
+                  },
+                  {
+                    "option": "5"
+                  }
+                ]
+              }
+            },
+            {
+              "fieldLabel": "Video length",
+              "fieldType": "dropdown",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "5 seconds"
+                  },
+                  {
+                    "option": "10 seconds"
+                  },
+                  {
+                    "option": "15 seconds"
+                  }
+                ]
+              }
+            },
+            {
+              "fieldLabel": "Voice and sound",
+              "fieldType": "dropdown",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Yes, a person talks"
+                  },
+                  {
+                    "option": "No, silent video"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "buttonLabel": "See the price"
+        }
+      },
+      "name": "Product form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "16ffeb2e-4041-5858-a3f4-0d07547376b2"
+    },
+    {
+      "id": "c7999846-88b2-5f34-a5fa-090db5530a54",
+      "parameters": {
+        "jsCode": "// Reads the form and turns the uploaded photo into a picture the writing model can read.\nconst item = $input.first();\nconst files = item.binary || {};\nconst key = Object.keys(files)[0];\nif (!key) throw new Error('Add a product photo to the form.');\nconst buffer = await this.helpers.getBinaryDataBuffer(0, key);\nconst type = files[key].mimeType || 'image/jpeg';\nconst form = item.json;\nreturn [{\n  json: {\n    product: String(form['Product name'] || '').trim(),\n    brief: String(form['What should the ads say?'] || '').trim(),\n    versions: Math.min(5, Math.max(2, parseInt(String(form['How many versions?'] || '3'), 10) || 3)),\n    seconds: parseInt(String(form['Video length'] || '5'), 10) || 5,\n    audio: !String(form['Voice and sound'] || 'Yes').startsWith('No'),\n    image: `data:${type};base64,${buffer.toString('base64')}`,\n  },\n  binary: { photo: files[key] },\n}];"
+      },
+      "name": "Get the photo ready",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "id": "62ec9777-3b31-5471-a4b0-d21d9f40fa8b",
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.martllm.com/v1/files",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "photo"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "name": "Save the photo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "martllmApiKey01",
+          "name": "MartLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "f59588a0-aaf3-5c83-aa7f-9c5d34909175",
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0f795b37-ac63-54f5-a22e-9a7f491b31ca",
+              "name": "video_model",
+              "value": "bytedance/seedance-2-0-fast-image-to-video",
+              "type": "string"
+            },
+            {
+              "id": "e97d0def-1eee-5275-ad6c-8236700fa086",
+              "name": "backup_video_models",
+              "value": "bytedance/seedance-2-0-image-to-video",
+              "type": "string"
+            },
+            {
+              "id": "92d7d3ea-95b7-5e1c-af3e-8a37dd44ae6b",
+              "name": "resolution",
+              "value": "720p",
+              "type": "string"
+            },
+            {
+              "id": "4c3fb182-798c-5467-a7f9-3321aa4d7a88",
+              "name": "script_model",
+              "value": "google/gemini-3-flash",
+              "type": "string"
+            },
+            {
+              "id": "060b6abe-f0b7-5e29-abda-4533e3b2229c",
+              "name": "max_cost_per_video_usd",
+              "value": 3,
+              "type": "number"
+            },
+            {
+              "id": "2fa0674e-9789-5f3b-a424-2b4f3d62a135",
+              "name": "script_instructions",
+              "value": "You write short UGC-style video ads for online stores. You get one product photo, the product name, what the ads should say, how many versions to write, the video length and whether the videos have a voice.\n\nWrite that many versions of the ad. Each version takes a clearly different angle (for example: the problem it solves, a first try, a day in use, a close look at the details, a quick honest review), with a different place and a different opening.\n\nThe photo becomes the first frame of every video. Each video must start from exactly what is in the photo and keep the product looking the same the whole time: same shape, colors, label and printed text.\n\nEach version is ONE continuous shot that a phone could film: a real person (a creator) showing or using the product in an everyday place, natural light, handheld feel. Say what the camera does, what the person does and where they are, in plain concrete words. Keep it to what can happen in the video length.\n\nNever add on-screen text, logos, prices, discounts or claims that are not in the brief. Never promise health or medical results.\n\nIf the videos have a voice, the person says one short line out loud that fits the video length (about 2.5 words per second). Put it in the video_prompt in quotes, after 'says:'. If there is no voice, spoken_line is an empty string.\n\nAnswer with JSON only: {\"versions\": [{\"angle\": \"the angle in a few words\", \"video_prompt\": \"...\", \"spoken_line\": \"...\", \"caption\": \"a caption for the post, at most 125 characters\"}]}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        660,
+        300
+      ]
+    },
+    {
+      "id": "10e8d91a-f140-5b35-a2ee-bc5cfe438ac6",
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.martllm.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  model: $json.script_model,\n  temperature: 0.8,\n  response_format: { type: 'json_object' },\n  messages: [\n    { role: 'system', content: $json.script_instructions },\n    { role: 'user', content: [\n      { type: 'text', text: 'Product: ' + $('Get the photo ready').first().json.product + '\\nWhat the ads should say: ' + $('Get the photo ready').first().json.brief + '\\nNumber of versions: ' + $('Get the photo ready').first().json.versions + '\\nVideo length: ' + $('Get the photo ready').first().json.seconds + ' seconds\\nThe videos have a voice: ' + ($('Get the photo ready').first().json.audio ? 'yes' : 'no') },\n      { type: 'image_url', image_url: { url: $('Get the photo ready').first().json.image } }\n    ] }\n  ]\n}) }}",
+        "options": {
+          "timeout": 120000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "name": "Write the ad versions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "martllmApiKey01",
+          "name": "MartLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "cfeeea28-5bb8-5459-aa4b-ff2ef5e4891c",
+      "parameters": {
+        "jsCode": "// One item per ad version. If something went wrong so far, one item that says what, in MartLLM's own words.\nconst tidy = (m) => String(m).replace(/[.\\s]+$/, '');\nconst stop = (problem) => [{ json: { problem: problem + ' Nothing was made and nothing was charged.' } }];\nconst photo = $('Save the photo').first().json;\nif (!photo.id) return stop('MartLLM could not take the photo: ' + tidy(photo.error?.message || 'no reason given') + '.');\nconst reply = $input.first().json;\nif (reply.error?.message) return stop('MartLLM could not write the ads: ' + tidy(reply.error.message) + '.');\nconst text = reply.choices?.[0]?.message?.content || '';\nconst found = text.match(/\\{[\\s\\S]*\\}/);\nlet plan;\ntry { plan = JSON.parse(found ? found[0] : text); } catch (e) {\n  return stop('The writing model did not answer in the expected shape. Send the form again.');\n}\nconst form = $('Get the photo ready').first().json;\nconst s = $('Settings').first().json;\nconst versions = (plan.versions || []).filter((v) => v && v.video_prompt).slice(0, form.versions);\nif (!versions.length) return stop('The writing model returned no ad versions. Send the form again.');\n// Each version carries the request both the price check and the start send, so the price is for exactly this video.\nreturn versions.map((v, i) => ({ json: {\n  n: i + 1,\n  angle: String(v.angle || 'Version ' + (i + 1)),\n  caption: String(v.caption || ''),\n  request: {\n    model: s.video_model,\n    prompt: v.video_prompt,\n    image_url: photo.id,\n    duration_seconds: form.seconds,\n    resolution: s.resolution,\n    audio: form.audio,\n    max_cost: s.max_cost_per_video_usd,\n  },\n} }));"
+      },
+      "name": "Read the versions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        300
+      ]
+    },
+    {
+      "id": "cb9ad5de-178a-5965-a4c2-f209accb3968",
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "fea05b86-294c-59c7-a6dc-2af5d56b2e0a",
+              "leftValue": "={{ !$json.problem }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Versions written?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1320,
+        300
+      ]
+    },
+    {
+      "id": "59049394-f54b-57e1-ad78-2b62cb584a9d",
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.martllm.com/v1/video/generations",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ ...$json.request, validate: true }) }}",
+        "options": {
+          "timeout": 120000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "name": "Price each version",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "martllmApiKey01",
+          "name": "MartLLM API key"
+        }
+      }
+    },
+    {
+      "id": "63767151-e43d-53a0-a049-6918a83cc638",
+      "parameters": {
+        "jsCode": "// Puts each version next to its price. If MartLLM refused one, say so in its own words: nothing has started yet.\nconst tidy = (m) => String(m).replace(/[.\\s]+$/, '');\nconst versions = $('Versions written?').all().map((i) => i.json);\nconst quotes = $input.all().map((i) => i.json);\nconst limit = $('Settings').first().json.max_cost_per_video_usd;\nconst usd = (x) => '$' + Number(x).toFixed(2);\nconst stop = (problem) => [{ json: { problem: problem + ' Nothing was made and nothing was charged.' } }];\nconst rows = [];\nfor (const [i, v] of versions.entries()) {\n  const q = quotes[i] || {};\n  if (q.error?.message) return stop('MartLLM could not price version ' + v.n + ': ' + tidy(q.error.message) + '.');\n  if (q.valid !== true) return stop('MartLLM could not price version ' + v.n + '.');\n  if (q.within_max_cost === false) return stop('Version ' + v.n + ' can cost up to ' + usd(q.max_cost_usd) + ', more than the limit of ' + usd(limit) + ' per video set for this form.');\n  rows.push({ ...v, price_usd: q.cost_usd, most_usd: q.max_cost_usd });\n}\nconst total = rows.reduce((sum, r) => sum + r.price_usd, 0);\nconst most = rows.reduce((sum, r) => sum + r.most_usd, 0);\nconst esc = (t) => String(t).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));\nconst html = '<ul>' + rows.map((r) => '<li><b>Version ' + r.n + ': ' + esc(r.angle) + '</b> ' + usd(r.price_usd) + '</li>').join('') + '</ul>'\n  + '<p><b>Total: about ' + usd(total) + '</b>' + (most - total >= 0.005 ? ' (never more than ' + usd(most) + ')' : '') + '. A video that is not made costs nothing.</p>';\nreturn [{ json: { rows, total_usd: Math.round(total * 10000) / 10000, most_usd: Math.round(most * 10000) / 10000, html } }];"
+      },
+      "name": "Price list",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        300
+      ]
+    },
+    {
+      "id": "13c6b835-d3be-5761-aad9-5c245397c0ee",
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b9fc2486-6036-5322-a3e9-a08371187e62",
+              "leftValue": "={{ !$json.problem }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Prices OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1980,
+        300
+      ]
+    },
+    {
+      "id": "76494b96-c879-546e-ac0b-df1b50f41bd1",
+      "parameters": {
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Prices",
+              "fieldType": "html",
+              "html": "={{ $json.html }}"
+            },
+            {
+              "fieldLabel": "Make these videos?",
+              "fieldType": "dropdown",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Yes, make them"
+                  },
+                  {
+                    "option": "No, stop here"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "formTitle": "Check the price",
+          "formDescription": "Nothing has been made or charged yet.",
+          "buttonLabel": "Continue"
+        }
+      },
+      "name": "Show the price",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 1,
+      "position": [
+        2200,
+        300
+      ],
+      "webhookId": "c6ac9374-ef2e-5e0b-a1d4-cf5de874da92"
+    },
+    {
+      "id": "1aa758ca-cf4a-57f1-aa3c-5e02e5385fd6",
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "66ec7984-ad41-5945-a7b6-90fb867a41bc",
+              "leftValue": "={{ String($json['Make these videos?'] || '').startsWith('Yes') }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Go ahead?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2420,
+        300
+      ]
+    },
+    {
+      "id": "594b0da0-4b23-5d1a-a0e1-495121b2cc38",
+      "parameters": {
+        "operation": "completion",
+        "completionTitle": "Nothing was made",
+        "completionMessage": "You stopped before the videos started. Nothing was charged.",
+        "options": {}
+      },
+      "name": "Nothing was made",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 1,
+      "position": [
+        2640,
+        520
+      ],
+      "webhookId": "7833c4ef-ff13-5137-acfd-7956c69495c8"
+    },
+    {
+      "id": "4fee2b37-abfb-5abb-aeff-7fe1d71019a5",
+      "parameters": {
+        "jsCode": "// Back to one item per version.\nreturn $('Price list').first().json.rows.map((r) => ({ json: r }));"
+      },
+      "name": "Versions to make",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        300
+      ]
+    },
+    {
+      "id": "72a5e317-71de-5497-a04e-5ac5b6a5999b",
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.martllm.com/v1/video/generations",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            },
+            {
+              "name": "Idempotency-Key",
+              "value": "={{ $execution.id }}-version-{{ $json.n }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  ...$json.request,\n  models: $('Settings').first().json.backup_video_models.split(',').map(s => s.trim()).filter(Boolean),\n  metadata: { template: 'ad-video-variants', product: $('Get the photo ready').first().json.product.slice(0, 100), version: String($json.n), angle: $json.angle.slice(0, 200) }\n}) }}",
+        "options": {
+          "timeout": 120000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "name": "Start each video",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2860,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "martllmApiKey01",
+          "name": "MartLLM API key"
+        }
+      }
+    },
+    {
+      "id": "db372ffd-9dc5-5a55-a226-9517851aa91f",
+      "parameters": {
+        "jsCode": "// Keeps the jobs that started. A version MartLLM refused is listed on the last page with MartLLM's own message.\nconst tidy = (m) => String(m).replace(/[.\\s]+$/, '');\nconst replies = $input.all().map((i) => i.json);\nconst started = replies.filter((r) => r.id);\nif (!started.length) {\n  return [{ json: { problem: 'No video could start: ' + tidy(replies[0]?.error?.message || 'MartLLM did not accept the request') + '. Nothing was charged.' } }];\n}\nreturn started.map((r) => ({ json: r }));"
+      },
+      "name": "Note the starts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3080,
+        300
+      ]
+    },
+    {
+      "id": "099be1f7-6826-56a7-ab5e-fb9d78be3b14",
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c0f61c06-0b98-56e2-a88c-51201225cdc4",
+              "leftValue": "={{ !$json.problem }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Any started?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3300,
+        300
+      ]
+    },
+    {
+      "id": "13723c7a-1905-50a9-a524-80a322b197c8",
+      "parameters": {
+        "amount": 20
+      },
+      "name": "Wait 20 seconds",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        3520,
+        300
+      ],
+      "webhookId": "ab933d69-5467-542f-a578-10bb34eb02ba"
+    },
+    {
+      "id": "1ada9b79-f5a1-59bf-a740-8182b90f99f9",
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.martllm.com/v1/video/generations/{{ $json.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "name": "Check each video",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3740,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "martllmApiKey01",
+          "name": "MartLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "62df06a3-1022-50eb-a64e-9043aec21e83",
+      "parameters": {
+        "jsCode": "// Looks at every job together. While any is still being made, all go round the loop again.\n// After 45 checks (15 minutes) it stops waiting; those jobs still finish and show in your MartLLM dashboard.\nconst jobs = $input.all().map((i) => i.json);\nconst busy = jobs.some((j) => ['queued', 'running'].includes(j.status));\nconst waiting = busy && $runIndex < 45;\nreturn jobs.map((j) => ({ json: { ...j, waiting } }));"
+      },
+      "name": "Any still being made?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3960,
+        300
+      ]
+    },
+    {
+      "id": "22a73ec4-b71a-5a88-af4c-572de84ce100",
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "3258ff04-6e7f-5d1d-a28f-c3a191dfa348",
+              "leftValue": "={{ $json.waiting }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Keep waiting?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4180,
+        300
+      ]
+    },
+    {
+      "id": "d798eb7f-367a-5716-a6fd-e0225b7acd4b",
+      "parameters": {
+        "jsCode": "// Passes on the videos that were made. If none was, one item with MartLLM's own reasons.\nconst jobs = $input.all().map((i) => i.json);\nconst made = jobs.filter((j) => j.status === 'succeeded' && j.results?.[0]?.url);\nif (!made.length) {\n  return [{ json: { problem: jobs.map((j) => 'Version ' + j.metadata?.version + ': ' + (j.error?.message ? String(j.error.message).replace(/[.\\s]+$/, '') : (['queued', 'running'].includes(j.status) ? 'still being made after 15 minutes; it will show in your MartLLM dashboard' : 'it ended as ' + j.status))).join('.\\n') + '.\\nNothing was charged.' } }];\n}\nreturn made.map((j) => ({ json: j }));"
+      },
+      "name": "Sort the results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4400,
+        300
+      ]
+    },
+    {
+      "id": "737be84c-60ab-5310-aece-e5a47da70900",
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "afd3a84e-af06-5729-aa35-1907faa67f14",
+              "leftValue": "={{ !$json.problem }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Any made?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4620,
+        300
+      ]
+    },
+    {
+      "id": "07d65082-d6ed-55c5-aab7-bb7c9919931a",
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.results[0].url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 300000,
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "video"
+            }
+          }
+        }
+      },
+      "name": "Download each video",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4840,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "martllmApiKey01",
+          "name": "MartLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "5f830ff1-3e8d-5a70-aea7-11e3160cfe8e",
+      "parameters": {
+        "jsCode": "// One item with every video file, and a short report: what was made, what each cost, what was not made and why.\nconst tidy = (m) => String(m).replace(/[.\\s]+$/, '');\nconst made = $('Any made?').all().map((i) => i.json);\nconst all = $('Any still being made?').all().map((i) => i.json);\nconst starts = $('Start each video').all().map((i) => i.json);\nconst asked = $('Versions to make').all().map((i) => i.json);\nconst usd = (x) => '$' + Number(x).toFixed(2);\nconst binary = {};\nconst lines = [];\nlet total = 0;\n$input.all().forEach((item, i) => {\n  const job = made[i];\n  const n = job.metadata?.version || String(i + 1);\n  const file = item.binary?.video;\n  if (!file) return;\n  binary['video_' + n] = { ...file, fileName: 'ad-version-' + n + '.mp4' };\n  const cost = job.usage?.cost_usd ?? job.estimated_cost_usd;\n  total += Number(cost) || 0;\n  lines.push('Version ' + n + ' (' + (job.metadata?.angle || '') + '): made, ' + usd(cost) + (job.usage?.cost_usd == null ? ' expected' : ''));\n});\nfor (const job of all) {\n  if (job.status !== 'succeeded') lines.push('Version ' + job.metadata?.version + ': not made, ' + (job.error?.message ? String(job.error.message).replace(/[.\\s]+$/, '') : (['queued', 'running'].includes(job.status) ? 'still being made after 15 minutes; it will show in your MartLLM dashboard' : 'it ended as ' + job.status)));\n}\nstarts.forEach((r, i) => { if (!r.id) lines.push('Version ' + asked[i]?.n + ': not started, ' + tidy(r.error?.message || 'MartLLM did not accept the request')); });\nif (!Object.keys(binary).length) throw new Error('The videos were made but could not be downloaded. They are in your MartLLM dashboard for about 3 hours.');\nreturn [{ json: { report: lines.join('.\\n') + '.\\nTotal: ' + usd(total) + '.', total_usd: Math.round(total * 10000) / 10000, files: Object.keys(binary).join(',') }, binary }];"
+      },
+      "name": "Pack the videos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5060,
+        300
+      ]
+    },
+    {
+      "id": "9ef40cbe-3dc5-583a-a078-dddfdfbbb4a5",
+      "parameters": {
+        "operation": "compress",
+        "binaryPropertyName": "={{ $json.files }}",
+        "outputFormat": "zip",
+        "fileName": "ad-videos.zip",
+        "binaryPropertyOutput": "data"
+      },
+      "name": "Zip the videos",
+      "type": "n8n-nodes-base.compression",
+      "typeVersion": 1.1,
+      "position": [
+        5280,
+        300
+      ]
+    },
+    {
+      "id": "27b1a508-2806-5270-af9a-7b77fc79e27b",
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "returnBinary",
+        "completionTitle": "Your videos are ready",
+        "completionMessage": "={{ $('Pack the videos').first().json.report }}",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "name": "Give the videos back",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 1,
+      "position": [
+        5500,
+        300
+      ],
+      "webhookId": "3cb04a4a-7a05-53a4-a297-6843b5ad6cfb"
+    },
+    {
+      "id": "4d8b4743-e936-5944-af1f-ca3bffc064d0",
+      "parameters": {
+        "operation": "completion",
+        "completionTitle": "The videos were not made",
+        "completionMessage": "={{ $json.problem }}",
+        "options": {}
+      },
+      "name": "Say what went wrong",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 1,
+      "position": [
+        3300,
+        620
+      ],
+      "webhookId": "72bd9c57-a9cd-55bb-a67d-c909d5093a10"
+    },
+    {
+      "id": "d3e77fff-bfcb-56cf-ab30-7d39d7aa3b50",
+      "parameters": {
+        "content": "## Several video ads from one product photo\n\nUpload a product photo and a short brief, and choose 2 to 5 versions. A model looks at the photo and writes each version from a different angle. You then see the price of every version and the total, and choose whether to go on. The videos are made at the same time and download as one zip file.\n\n### Set up (2 minutes)\n1. Get an API key at [martllm.com](https://martllm.com/go/n8n-ad-video-variants) and add credit.\n2. Open **Save the photo** → Credential → Create new → **Header Auth**:\n   - Name: `Authorization`\n   - Value: `Bearer ` followed by your key\n   Every MartLLM step uses this one credential.\n3. Turn the workflow on, open **Product form** and copy its link. Share the link with anyone on your team who needs ads.\n\n### What it costs\nYou always see the real price before anything is made. On 2026-11-25 the price list showed $0.085 per second at 720p and $0.039 per second at 480p for the default model, so three 5 second versions at 720p were about $1.27. Writing the versions costs a fraction of a cent. A video that is not made costs nothing. Live prices: [martllm.com/models](https://martllm.com/models?type=video).",
+        "height": 700,
+        "width": 400
+      },
+      "name": "Note: start here",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -460,
+        0
+      ]
+    },
+    {
+      "id": "53086193-34f5-5beb-a72c-6867843c4d38",
+      "parameters": {
+        "content": "### Change it here\n**Settings** holds the video model with a backup, 480p or 720p, the writing model, the most one video may cost, and the writing rules (tone, what never to say).\n\nThe videos take the shape of your photo: upload a tall photo for a tall video.",
+        "height": 260,
+        "width": 240,
+        "color": 5
+      },
+      "name": "Note: settings",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        600,
+        0
+      ]
+    },
+    {
+      "id": "88415491-fb8f-5e40-abcb-d8b36d9d590c",
+      "parameters": {
+        "content": "### The price comes first\n**Price each version** asks MartLLM what each exact video costs. Nothing is made and nothing is charged for asking. **Show the price** puts the list on the form page and waits for your answer. If MartLLM refuses a request, the form shows MartLLM's own message and nothing starts.",
+        "height": 260,
+        "width": 1100,
+        "color": 3
+      },
+      "name": "Note: price",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1480,
+        0
+      ]
+    },
+    {
+      "id": "1bd86752-6939-53b3-a93a-e60199a4eb7b",
+      "parameters": {
+        "content": "### All versions at once\nEvery version starts at the same time, so three videos take about as long as one: usually 1 to 5 minutes. The workflow checks every 20 seconds and stops waiting after 15 minutes. If one version is not made, the others still come through and the last page says which one failed and why.",
+        "height": 260,
+        "width": 1540,
+        "color": 6
+      },
+      "name": "Note: waiting",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2800,
+        0
+      ]
+    },
+    {
+      "id": "2074d4b6-2d1d-5234-adc0-efb16e289ba2",
+      "parameters": {
+        "content": "### Where the videos go\nThey download as one zip file on the form page. To keep every video, put a Google Drive, Slack or S3 step after **Download each video**: each file is in the `video` field. MartLLM keeps the files for about 3 hours.",
+        "height": 260,
+        "width": 900,
+        "color": 4
+      },
+      "name": "Note: after",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        4780,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Product form": {
+      "main": [
+        [
+          {
+            "node": "Get the photo ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get the photo ready": {
+      "main": [
+        [
+          {
+            "node": "Save the photo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save the photo": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Write the ad versions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write the ad versions": {
+      "main": [
+        [
+          {
+            "node": "Read the versions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read the versions": {
+      "main": [
+        [
+          {
+            "node": "Versions written?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Versions written?": {
+      "main": [
+        [
+          {
+            "node": "Price each version",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Say what went wrong",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Price each version": {
+      "main": [
+        [
+          {
+            "node": "Price list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Price list": {
+      "main": [
+        [
+          {
+            "node": "Prices OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prices OK?": {
+      "main": [
+        [
+          {
+            "node": "Show the price",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Say what went wrong",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Show the price": {
+      "main": [
+        [
+          {
+            "node": "Go ahead?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Go ahead?": {
+      "main": [
+        [
+          {
+            "node": "Versions to make",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Nothing was made",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Versions to make": {
+      "main": [
+        [
+          {
+            "node": "Start each video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start each video": {
+      "main": [
+        [
+          {
+            "node": "Note the starts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Note the starts": {
+      "main": [
+        [
+          {
+            "node": "Any started?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any started?": {
+      "main": [
+        [
+          {
+            "node": "Wait 20 seconds",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Say what went wrong",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 20 seconds": {
+      "main": [
+        [
+          {
+            "node": "Check each video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check each video": {
+      "main": [
+        [
+          {
+            "node": "Any still being made?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any still being made?": {
+      "main": [
+        [
+          {
+            "node": "Keep waiting?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keep waiting?": {
+      "main": [
+        [
+          {
+            "node": "Wait 20 seconds",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sort the results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sort the results": {
+      "main": [
+        [
+          {
+            "node": "Any made?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any made?": {
+      "main": [
+        [
+          {
+            "node": "Download each video",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Say what went wrong",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download each video": {
+      "main": [
+        [
+          {
+            "node": "Pack the videos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pack the videos": {
+      "main": [
+        [
+          {
+            "node": "Zip the videos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zip the videos": {
+      "main": [
+        [
+          {
+            "node": "Give the videos back",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

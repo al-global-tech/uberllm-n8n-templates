@@ -1,0 +1,481 @@
+{
+  "name": "Send each prompt to the cheapest model on your list and log the cost (MartLLM)",
+  "nodes": [
+    {
+      "id": "9ffe4ec6-c79c-59d1-a5e3-b5d74fabdf01",
+      "parameters": {},
+      "name": "Run it",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "id": "78c54d44-b361-53e0-a99e-e8a7d7492cbd",
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ea4fac42-7633-5247-acab-f125de861169",
+              "name": "prompt",
+              "value": "Write a two-sentence product description for a stainless steel water bottle that keeps drinks cold for 24 hours.",
+              "type": "string"
+            },
+            {
+              "id": "03495010-aed3-5bdb-aa42-2f93cc984acd",
+              "name": "instructions",
+              "value": "You are a helpful assistant. Answer in plain words.",
+              "type": "string"
+            },
+            {
+              "id": "22faf2bf-cb87-5aec-a5bb-d0b1c63b5184",
+              "name": "allowed_models",
+              "value": "deepseek/deepseek-v4.1-flash, z-ai/glm-5.3, openai/gpt-oss-120b, qwen/qwen3.7-flash",
+              "type": "string"
+            },
+            {
+              "id": "417b4464-32d6-5ad0-ae08-a10ff58493bb",
+              "name": "max_output_tokens",
+              "value": 600,
+              "type": "number"
+            },
+            {
+              "id": "cb45ccbb-06bb-5e67-ac26-4e64baef7906",
+              "name": "api_base",
+              "value": "https://api.martllm.com/v1",
+              "type": "string"
+            },
+            {
+              "id": "9927bd4c-47ff-5b0b-a843-1c085383f72f",
+              "name": "prices_url",
+              "value": "https://api.martllm.com/api/v1/public/prices",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "id": "2fc217cf-68df-5736-a4cb-a1e00456304f",
+      "parameters": {
+        "url": "={{ $json.prices_url }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "type",
+              "value": "text"
+            },
+            {
+              "name": "limit",
+              "value": "1000"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "name": "Read live prices",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "id": "646ba2a5-0d09-58eb-a1e4-12886af53f8a",
+      "parameters": {
+        "jsCode": "// Picks the cheapest model on your list that is for sale right now.\nconst s = $('Settings').first().json;\nconst res = $input.first().json;\nif (res.statusCode !== 200) {\n  throw new Error('The MartLLM price list answered ' + res.statusCode + ': ' + (res.body?.error?.message || 'no message'));\n}\nconst wanted = String(s.allowed_models || '').split(/[\\n,]+/).map((x) => x.trim()).filter(Boolean);\nif (!wanted.length) throw new Error('Settings: allowed_models is empty. List the model ids you trust for this job.');\n\nconst byId = new Map((res.body?.models || []).map((m) => [m.id, m]));\n// Same rule as MartLLM's own best-price pick: price per 1M tokens, output counted three times.\nconst rank = (m) => m.input_per_m + 3 * m.output_per_m;\nconst forSale = wanted\n  .map((id) => byId.get(id))\n  .filter((m) => m && typeof m.input_per_m === 'number' && typeof m.output_per_m === 'number')\n  .sort((a, b) => rank(a) - rank(b));\nif (!forSale.length) {\n  throw new Error('None of your models is for sale right now: ' + wanted.join(', ') + '. Check the ids at martllm.com/models.');\n}\nconst best = forSale[0];\n// Tried in this order only when nobody can serve the model before it. At most 5 models in one request.\nconst backups = forSale.slice(1, 5).map((m) => m.id);\nconst request = {\n  model: best.id,\n  max_tokens: Number(s.max_output_tokens) || 600,\n  messages: [{ role: 'user', content: String(s.prompt || '') }],\n  metadata: { template: 'cheapest-model-router' },\n};\nif (backups.length) request.models = backups;\nif (s.instructions) request.messages.unshift({ role: 'system', content: String(s.instructions) });\nreturn [{ json: {\n  api_base: s.api_base,\n  request,\n  model: best.id,\n  backup_models: backups,\n  listed_input_per_m: best.input_per_m,\n  listed_output_per_m: best.output_per_m,\n  prices_read_at: res.body.updated_at,\n  not_for_sale_now: wanted.filter((id) => !byId.has(id)),\n} }];"
+      },
+      "name": "Pick the cheapest model",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        300
+      ]
+    },
+    {
+      "id": "48722b85-2c05-59e6-a3a4-8b4063d00473",
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.api_base }}/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Title",
+              "value": "n8n"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.request) }}",
+        "options": {
+          "timeout": 180000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "name": "Ask the model",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        300
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "martllmOpenAi01",
+          "name": "MartLLM (OpenAI credential)"
+        }
+      }
+    },
+    {
+      "id": "81241046-d596-5937-a120-e40756d9060d",
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "0184686f-a8e9-523f-abbb-ac61d34dc84c",
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": 200,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Did it answer?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1100,
+        300
+      ]
+    },
+    {
+      "id": "d2f9b91f-264c-5f4b-a593-ba30aa13c0a0",
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Reads the answer and what MartLLM billed for it.\nconst r = $json;\nconst b = r.body || {};\nconst u = b.usage || {};\nconst picked = $('Pick the cheapest model').first().json;\nconst cost = typeof u.cost_usd === 'number' ? u.cost_usd : Number(r.headers?.['x-uberllm-cost-usd']);\nreturn { json: {\n  answer: b.choices?.[0]?.message?.content ?? '',\n  model: b.model || picked.model,\n  cost_usd: Number.isFinite(cost) ? cost : null,\n  input_tokens: u.prompt_tokens ?? null,\n  output_tokens: u.completion_tokens ?? null,\n  listed_input_per_m: picked.listed_input_per_m,\n  listed_output_per_m: picked.listed_output_per_m,\n  request_id: r.headers?.['x-request-id'] || b.id || '',\n  time: new Date().toISOString(),\n} };"
+      },
+      "name": "Read the answer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        200
+      ]
+    },
+    {
+      "id": "7d1c2688-c984-5b29-af1e-e344263d1592",
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e692687f-a389-567d-a914-6f340f55cf86",
+              "name": "time",
+              "value": "={{ $json.time }}",
+              "type": "string"
+            },
+            {
+              "id": "99fc0952-ea30-553e-a47b-387ec485883c",
+              "name": "model",
+              "value": "={{ $json.model }}",
+              "type": "string"
+            },
+            {
+              "id": "9cd224db-507b-575b-ae89-0ff7c4e573b3",
+              "name": "cost_usd",
+              "value": "={{ $json.cost_usd }}",
+              "type": "string"
+            },
+            {
+              "id": "efb5a483-18bf-59d0-ade5-a2edf2c57547",
+              "name": "input_tokens",
+              "value": "={{ $json.input_tokens }}",
+              "type": "string"
+            },
+            {
+              "id": "26babe03-59ca-5336-afda-ab2b74516312",
+              "name": "output_tokens",
+              "value": "={{ $json.output_tokens }}",
+              "type": "string"
+            },
+            {
+              "id": "227717fc-f869-559a-ae3d-73f29662d07f",
+              "name": "listed_input_per_m",
+              "value": "={{ $json.listed_input_per_m }}",
+              "type": "string"
+            },
+            {
+              "id": "07029860-7993-588d-adf6-5f3d4d457c24",
+              "name": "listed_output_per_m",
+              "value": "={{ $json.listed_output_per_m }}",
+              "type": "string"
+            },
+            {
+              "id": "40948ec0-7e65-5fed-a23f-8f4b2df16a61",
+              "name": "request_id",
+              "value": "={{ $json.request_id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Row for the log",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1540,
+        200
+      ]
+    },
+    {
+      "id": "8327e231-26c8-5499-a353-9e8903356847",
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      },
+      "name": "Log the run",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1760,
+        200
+      ]
+    },
+    {
+      "id": "a6108f90-28ff-57ba-a1e0-85eb85f8b1da",
+      "parameters": {
+        "errorMessage": "={{ 'MartLLM answered ' + $json.statusCode + ': ' + ($json.body?.error?.message || String(JSON.stringify($json.body || '')).slice(0, 500)) + ($json.headers?.['x-request-id'] ? ' (request ' + $json.headers['x-request-id'] + ')' : '') }}"
+      },
+      "name": "Say why it failed",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        1320,
+        420
+      ]
+    },
+    {
+      "id": "876f7080-1c9f-5bd2-a403-881bedf8b15d",
+      "parameters": {
+        "content": "## Cheapest-model router with a cost log\n\nYou list the models you trust for a job. On every run the workflow reads MartLLM's live prices, sends your prompt to the cheapest model on your list that is for sale right now, and writes the model and what the run cost to a Google Sheet.\n\n### Set up (5 minutes)\n1. Get an API key at [martllm.com](https://martllm.com/go/n8n-cheapest-model-router) (Dashboard → Keys) and add credit.\n2. In n8n create a credential of type **OpenAI**:\n   - API Key: your MartLLM key\n   - Base URL: `https://api.martllm.com/v1`\n   - Organization ID: leave empty\n3. Open **Ask the model** and pick that credential.\n4. Open **Log the run**, sign in to Google and pick a spreadsheet and an empty sheet. The column names are written for you on the first run.\n5. Open **Settings**, write your prompt and your list of models, then press **Execute workflow**.\n\n### Use it in your own workflow\nReplace **Run it** with your own trigger (webhook, schedule, form, another workflow) and put your text in **Settings → prompt**. The answer is in **Read the answer → answer**.",
+        "height": 660,
+        "width": 400
+      },
+      "name": "Note: start here",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -460,
+        0
+      ]
+    },
+    {
+      "id": "5fa0fea4-c6c6-5e19-adeb-49f9b1e2ba8d",
+      "parameters": {
+        "content": "### Settings\n- **prompt**: what you ask.\n- **instructions**: how the model should behave. May be empty.\n- **allowed_models**: model ids you have tried and trust for this job, separated by commas. Copy ids from [martllm.com/models](https://martllm.com/models). The cheapest one for sale right now is used; the others are backups.\n- **max_output_tokens**: the longest answer you accept. It also limits what one run can cost.",
+        "height": 300,
+        "width": 420
+      },
+      "name": "Note: settings",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        480
+      ]
+    },
+    {
+      "id": "af172104-2b84-5d0e-a336-5f5bd8cafc96",
+      "parameters": {
+        "content": "### How the pick works\n**Read live prices** needs no key. It returns the price of every text model per 1 million tokens.\n\n**Pick the cheapest model** ranks your models by input price plus three times output price and takes the lowest. A model that is missing from the price list is not for sale right now and is skipped. The next cheapest models go along as backups, used only when nobody can serve the first one.",
+        "height": 300,
+        "width": 420
+      },
+      "name": "Note: how the pick works",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        620,
+        480
+      ]
+    },
+    {
+      "id": "bd59f0a4-c44f-5ec4-a939-052c10ad67b7",
+      "parameters": {
+        "content": "### Cost and failures\n**cost_usd** is what MartLLM billed for the run, taken from its reply. Right after a run it can be an estimate; the exact charge is in your MartLLM dashboard under Activity, where **request_id** finds the same run.\n\nIf MartLLM refuses a run (empty balance, wrong key, no model for sale), the workflow stops at **Say why it failed** with MartLLM's own message. A refused run is not charged.",
+        "height": 260,
+        "width": 420
+      },
+      "name": "Note: cost and failures",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1260,
+        560
+      ]
+    }
+  ],
+  "connections": {
+    "Run it": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Read live prices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read live prices": {
+      "main": [
+        [
+          {
+            "node": "Pick the cheapest model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick the cheapest model": {
+      "main": [
+        [
+          {
+            "node": "Ask the model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask the model": {
+      "main": [
+        [
+          {
+            "node": "Did it answer?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Did it answer?": {
+      "main": [
+        [
+          {
+            "node": "Read the answer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Say why it failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read the answer": {
+      "main": [
+        [
+          {
+            "node": "Row for the log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Row for the log": {
+      "main": [
+        [
+          {
+            "node": "Log the run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

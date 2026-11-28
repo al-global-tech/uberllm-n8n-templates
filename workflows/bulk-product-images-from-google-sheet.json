@@ -1,0 +1,640 @@
+{
+  "name": "Make product images in bulk from a Google Sheet with Nano Banana 2 and Z-Image (MartLLM)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Make product images in bulk from a Google Sheet\n\nEach row of your sheet becomes one image. The image is saved to your Google Drive, and its link, what it cost and whether it worked are written back to the same row.\n\n### Your sheet\nFirst row = column names, lower case:\n- `prompt` (needed): what the image should show.\n- `product` (optional): used as the file name.\n- `photo_link` (optional): a public `https://` link to a real photo of the product. With a photo, the product in the image is your real product. Without one, the image is made from the prompt alone.\n\nThe workflow adds `image_link`, `cost_usd` and `status` by itself. A row is made when `prompt` is filled and `image_link` is empty, so you can run it again and again: finished rows are skipped, failed rows are tried again.\n\n### Set up (5 minutes)\n1. Get an API key at [martllm.com](https://martllm.com/go/n8n-bulk-product-images) and add credit.\n2. Open **Make the image** → Credential → Create new → **Header Auth**:\n   - Name: `Authorization`\n   - Value: `Bearer ` followed by your key\n   The other MartLLM steps use the same credential. If you already made it for another MartLLM or UberLLM template, pick that one.\n3. Open **Read the sheet** and **Write the row back**: connect Google Sheets, then pick your spreadsheet and tab in both.\n4. Open **Save to Google Drive**: connect Google Drive and pick a folder.\n5. Click **Execute workflow**.\n\n### Price\nListed on 2026-11-25: $0.0042 per image from a prompt (Z-Image Turbo), $0.0165 per image from a product photo (Nano Banana 2). Prices move: [live prices](https://martllm.com/models).\n\n### What you pay\n- Each request costs what the seller that made it charged. No MartLLM fee on requests.\n- Anything that is not made costs nothing.\n- Adding credit by card costs 5.5% + $0.50. Credit does not expire while your account is open.\n",
+        "height": 900,
+        "width": 520
+      },
+      "id": "d934dda8-3a2b-5efc-92fd-7164ccceebec",
+      "name": "Note: start here",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -680,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Change it here\n**Settings** holds the two models, the shape (`square`, `portrait` or `landscape`), words added to every prompt, how many rows one run may make, and the most one image may cost.\n\nAny image model on [martllm.com/models](https://martllm.com/models) works: copy its id.",
+        "height": 300,
+        "width": 240,
+        "color": 5
+      },
+      "id": "00ce4087-8421-56ff-bcea-9ce6f9185c40",
+      "name": "Note: settings",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        180,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### One row at a time\nA row that cannot be made does not stop the others. The reason the API gave is written in the row's `status` cell, nothing is charged for it, and the next run tries it again.",
+        "height": 150,
+        "width": 900,
+        "color": 6
+      },
+      "id": "71a9ceb0-a9b9-5b50-81eb-3ed0eb54ccd7",
+      "name": "Note: one row at a time",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        860,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Where the images go\nMartLLM keeps a picture link for about 15 minutes, so each image is downloaded at once and saved to your Google Drive. The Drive link in the sheet opens for you and for anyone you share the folder with.",
+        "height": 200,
+        "width": 420,
+        "color": 4
+      },
+      "id": "bbfe671a-e61d-52c9-aefa-fbba3c9c2b3b",
+      "name": "Note: where images go",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1560,
+        440
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "78e6dd29-a746-5d6a-a307-972c5cec26d2",
+      "name": "Run workflow",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "bf1bde9d-68ab-534f-a6c3-87b35d8852e9",
+              "name": "text_to_image_model",
+              "value": "venice/z-image-turbo",
+              "type": "string"
+            },
+            {
+              "id": "5fd7f61d-b134-564a-9717-985b26d80275",
+              "name": "photo_edit_model",
+              "value": "google/nano-banana-2-edit",
+              "type": "string"
+            },
+            {
+              "id": "b83ffe75-1a59-52ac-8ba3-b0cc96318edd",
+              "name": "shape",
+              "value": "square",
+              "type": "string"
+            },
+            {
+              "id": "90a54cb8-cd0f-5b78-a707-37189b68fe90",
+              "name": "style_for_every_image",
+              "value": "Clean studio product photo, soft even light, plain light background",
+              "type": "string"
+            },
+            {
+              "id": "534aa1bd-9e86-518a-a3ee-110e90826412",
+              "name": "max_rows_per_run",
+              "value": 20,
+              "type": "number"
+            },
+            {
+              "id": "4faf009d-6a9d-5348-8ecc-746b9c22c744",
+              "name": "max_cost_per_image",
+              "value": 0.2,
+              "type": "number"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "id": "a04ef10d-1a70-5c29-8ae0-949fe6fbebce",
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "sheet",
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "options": {}
+      },
+      "id": "45701d59-ad25-5103-a645-bb0b4f309f3e",
+      "name": "Read the sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        440,
+        200
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "googleSheets01",
+          "name": "Google Sheets account"
+        }
+      },
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Picks the rows that still need an image and builds the request for each one.\n// A row needs an image when it has a prompt and its image_link cell is empty.\nconst s = $('Settings').first().json;\nconst rows = $input.all().map((i) => i.json).filter((r) => Object.keys(r).length);\nif (!rows.length) throw new Error('The sheet has no rows under the header row. Add a row with a prompt and run again.');\nif (!rows.some((r) => 'prompt' in r)) {\n  throw new Error('The sheet needs a column named prompt (in the first row, lower case). Add it and run again.');\n}\n// One shape setting for both models: text-to-image takes a size, photo edits take a ratio.\nconst SHAPES = { square: ['1024x1024', '1:1'], portrait: ['1024x1536', '2:3'], landscape: ['1536x1024', '3:2'] };\nconst shape = SHAPES[String(s.shape || '').trim().toLowerCase()];\nif (!shape) throw new Error('Settings → shape must be square, portrait or landscape.');\nconst style = String(s.style_for_every_image || '').trim();\nconst limit = Math.max(1, Math.min(200, Number(s.max_rows_per_run) || 20));\nconst text = (v) => String(v ?? '').trim();\n\nconst todo = rows.filter((r) => text(r.prompt) && !text(r.image_link)).slice(0, limit);\nreturn todo.map((r) => {\n  const photo = text(r.photo_link);\n  const prompt = [text(r.prompt), style].filter(Boolean).join('. ');\n  const tags = { template: 'bulk-product-images-sheet', row: String(r.row_number) };\n  return { json: {\n    row_number: r.row_number,\n    file_name: (text(r.product) || 'row-' + r.row_number).replace(/[^\\p{L}\\p{N} _-]+/gu, ' ').trim().slice(0, 80) || 'row-' + r.row_number,\n    api_url: 'https://api.martllm.com/v1/images/' + (photo ? 'edits' : 'generations'),\n    request: photo\n      ? { model: s.photo_edit_model, prompt: prompt + '. Keep the product exactly as it is in the photo: same shape, colours, label and text.',\n          image_url: photo, aspect_ratio: shape[1], max_cost: s.max_cost_per_image, metadata: tags }\n      : { model: s.text_to_image_model, prompt, n: 1, size: shape[0], max_cost: s.max_cost_per_image, metadata: tags },\n  } };\n});"
+      },
+      "id": "b5b93318-4ef7-5195-8e48-376d29cfe364",
+      "name": "Rows to make",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "e716340f-80fc-5fa3-8ef5-de1d85e26f64",
+      "name": "One row at a time",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        880,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.api_url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.request) }}",
+        "options": {
+          "timeout": 180000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "d9e9bf13-dbed-5c4d-abf1-0a716132c409",
+      "name": "Make the image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        220
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "martllmApiKey01",
+          "name": "MartLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "4abfa8f3-1c7d-5afd-a82d-ee0d434dff4a",
+              "leftValue": "={{ !!($json.data && $json.data[0] && $json.data[0].url) }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "46935384-8ba2-5bee-b0e3-24d1fbcdd2e2",
+      "name": "Image made?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1320,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.data[0].url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 300000,
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      },
+      "id": "eccea2cb-b778-5ec8-b68a-c3142cc2d5e5",
+      "name": "Download the image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        120
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "martllmApiKey01",
+          "name": "MartLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "upload",
+        "inputDataFieldName": "data",
+        "name": "={{ $('One row at a time').item.json.file_name + '.' + ($binary.data.fileExtension || 'png') }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "root",
+          "cachedResultName": "/ (Root folder)"
+        },
+        "options": {}
+      },
+      "id": "95ffb519-c1eb-53e8-8f76-67873fa56c57",
+      "name": "Save to Google Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1760,
+        120
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "googleDrive01",
+          "name": "Google Drive account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "32b2fa2f-14c1-504b-af7e-247f32daac57",
+              "name": "row_number",
+              "type": "number",
+              "value": "={{ $('One row at a time').item.json.row_number }}"
+            },
+            {
+              "id": "6e340ffe-ade6-5a12-a7a6-71812e7d7978",
+              "name": "image_link",
+              "type": "string",
+              "value": "={{ $json.webViewLink || ('https://drive.google.com/file/d/' + $json.id + '/view') }}"
+            },
+            {
+              "id": "c611ce0f-1e31-52f9-aed2-11cbd01b6513",
+              "name": "cost_usd",
+              "type": "string",
+              "value": "={{ String($('Make the image').item.json.usage?.cost_usd ?? '') }}"
+            },
+            {
+              "id": "a77ccb20-741b-53f5-a6aa-9ce2f2a3590f",
+              "name": "status",
+              "type": "string",
+              "value": "made"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "id": "4e020a9b-702d-5a79-b107-1a10b00681dc",
+      "name": "Row made",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1980,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "dc8076d0-0f9c-599e-835e-347ae1c13597",
+              "name": "row_number",
+              "type": "number",
+              "value": "={{ $('One row at a time').item.json.row_number }}"
+            },
+            {
+              "id": "5fbda071-f599-5b32-9110-b7a0b762a1f6",
+              "name": "status",
+              "type": "string",
+              "value": "={{ 'not made, nothing charged: ' + (($json.error && ($json.error.message || (typeof $json.error === 'string' ? $json.error : ''))) || $json.message || 'the request did not answer') }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "id": "46b91ed4-9a43-5d00-bb22-f65d76bb91b4",
+      "name": "Row not made",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1540,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "sheet",
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": []
+        },
+        "options": {}
+      },
+      "id": "5ab4f751-f4d0-51aa-8f18-e304316aa41b",
+      "name": "Write the row back",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2200,
+        220
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "googleSheets01",
+          "name": "Google Sheets account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "// One line that says what this run did. Costs are also in the sheet, one per row.\nconst rows = $input.all().map((i) => i.json).filter((r) => r.row_number !== undefined);\nconst made = rows.filter((r) => r.status === 'made');\nreturn [{ json: {\n  images_made: made.length,\n  rows_not_made: rows.length - made.length,\n  total_cost_usd: Math.round(made.reduce((sum, r) => sum + (Number(r.cost_usd) || 0), 0) * 1e6) / 1e6,\n} }];"
+      },
+      "id": "b2487d7d-da0f-5ede-a51f-7ba3f38582af",
+      "name": "Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        20
+      ]
+    }
+  ],
+  "connections": {
+    "Run workflow": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Read the sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read the sheet": {
+      "main": [
+        [
+          {
+            "node": "Rows to make",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rows to make": {
+      "main": [
+        [
+          {
+            "node": "One row at a time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One row at a time": {
+      "main": [
+        [
+          {
+            "node": "Summary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Make the image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Make the image": {
+      "main": [
+        [
+          {
+            "node": "Image made?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Image made?": {
+      "main": [
+        [
+          {
+            "node": "Download the image",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Row not made",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download the image": {
+      "main": [
+        [
+          {
+            "node": "Save to Google Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Google Drive": {
+      "main": [
+        [
+          {
+            "node": "Row made",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Row made": {
+      "main": [
+        [
+          {
+            "node": "Write the row back",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Row not made": {
+      "main": [
+        [
+          {
+            "node": "Write the row back",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write the row back": {
+      "main": [
+        [
+          {
+            "node": "One row at a time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "description": "Each row of a Google Sheet becomes one product image, from a prompt alone or from a real product photo. The image is saved to Google Drive and its link, cost and status are written back to the row."
+  },
+  "tags": []
+}

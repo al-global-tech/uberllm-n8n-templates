@@ -1,0 +1,995 @@
+{
+  "name": "Make a faceless vertical video from an idea, save it to Google Drive and log it in Google Sheets (MartLLM)",
+  "nodes": [
+    {
+      "id": "f78cc47d-b287-53df-af60-b834c7e95b0f",
+      "parameters": {},
+      "name": "Run now",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        200
+      ]
+    },
+    {
+      "id": "2878fb44-a0d8-5dd9-aeb6-abae1839c517",
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAtHour": 9,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "name": "Every day",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        400
+      ]
+    },
+    {
+      "id": "2324e3a4-0385-5c7f-a2ff-5d4645350b4a",
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f3fc969d-2260-5e18-a8b1-569934ae2a3f",
+              "name": "channel_topic",
+              "value": "Calm, surprising facts about the deep ocean",
+              "type": "string"
+            },
+            {
+              "id": "2f15e1c4-4e96-5413-a4c2-aadd77755ded",
+              "name": "idea",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "abd12256-21ae-5dd7-aae8-96fbecbc23e0",
+              "name": "look",
+              "value": "Cinematic and realistic, natural light, slow camera moves, no people, no text on screen",
+              "type": "string"
+            },
+            {
+              "id": "c09ef199-1b24-5b40-a7e5-4e2c26de278a",
+              "name": "seconds",
+              "value": 8,
+              "type": "number"
+            },
+            {
+              "id": "14bb5206-a347-5045-a74a-0e5152918854",
+              "name": "resolution",
+              "value": "720p",
+              "type": "string"
+            },
+            {
+              "id": "2e2558b9-2bac-5468-a215-5ac30cc827ee",
+              "name": "voice",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "80afae0b-0000-5e65-a7dc-b82999631940",
+              "name": "video_model",
+              "value": "venice/seedance-2-fast-t2v",
+              "type": "string"
+            },
+            {
+              "id": "e9d93d46-7a19-5ba1-ad2c-d11a3c5cf0ef",
+              "name": "backup_video_models",
+              "value": "venice/seedance-2-5-flash-text-to-video-basic",
+              "type": "string"
+            },
+            {
+              "id": "f6ae8748-1b59-58c5-a807-720f27901be7",
+              "name": "script_model",
+              "value": "deepseek/deepseek-v4.1-flash",
+              "type": "string"
+            },
+            {
+              "id": "8ffa3003-af76-5d2a-a993-b4223527c07e",
+              "name": "max_cost_usd",
+              "value": 2,
+              "type": "number"
+            },
+            {
+              "id": "b04c260c-85d1-5928-a978-3ef3ba7913cd",
+              "name": "script_instructions",
+              "value": "You plan one faceless short vertical video (YouTube Shorts, TikTok, Reels) for a channel. You get the channel topic, an idea (or none: then pick a fresh one that fits the topic), the look, the video length in seconds, whether the video has a voice, and titles the channel already made.\n\nWrite ONE continuous vertical shot that a video model can make in that length. Describe the subject, the place, the light and how the camera moves, in plain concrete words. No people on camera, no on-screen text, no logos, no brand names.\n\nIf the video has a voice, a narrator says one short line that fits the length (about 2.5 words per second). Put it at the end of video_prompt in quotes, after 'A calm narrator says:'. If there is no voice, write no spoken line.\n\nNever repeat a title that was already made. State only facts that are true and well known.\n\nAnswer with JSON only: {\"idea\": \"the idea in one sentence\", \"title\": \"at most 60 characters\", \"video_prompt\": \"...\", \"caption\": \"a caption for the post, at most 150 characters\", \"hashtags\": \"3 to 5 hashtags separated by spaces\"}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "id": "e98e83b4-3392-569a-ae1c-6f7e19d6cfbc",
+      "parameters": {
+        "jsCode": "// Titles this workflow already made, so the daily run does not repeat itself.\n// n8n keeps this memory only for an active workflow run by its schedule; a manual test run starts empty.\nconst made = $getWorkflowStaticData('global').titles || [];\nreturn [{ json: { ...$input.first().json, past_titles: made.slice(-50) } }];"
+      },
+      "name": "Remember past videos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "id": "678f103f-563c-50ac-aa0b-a9d81bc1161f",
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.martllm.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  model: $json.script_model,\n  temperature: 0.9,\n  response_format: { type: 'json_object' },\n  messages: [\n    { role: 'system', content: $json.script_instructions },\n    { role: 'user', content: 'Channel topic: ' + $json.channel_topic + '\\nIdea: ' + ($json.idea || 'none, pick one') + '\\nLook: ' + $json.look + '\\nVideo length: ' + $json.seconds + ' seconds\\nThe video has a voice: ' + ($json.voice ? 'yes' : 'no') + '\\nAlready made: ' + ($json.past_titles.join('; ') || 'nothing yet') }\n  ]\n}) }}",
+        "options": {
+          "timeout": 120000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "name": "Write the video plan",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "martllmApiKey01",
+          "name": "MartLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "8b2fa4b6-89cd-56c3-a207-f23578ee3640",
+      "parameters": {
+        "jsCode": "const reply = $input.first().json;\nif (reply.error?.message) throw new Error('MartLLM could not write the plan: ' + reply.error.message);\nconst text = reply.choices?.[0]?.message?.content || '';\nconst found = text.match(/\\{[\\s\\S]*\\}/);\nlet plan;\ntry { plan = JSON.parse(found ? found[0] : text); } catch (e) {\n  throw new Error('The writing model did not answer in the expected shape. Run the workflow again, or pick another script_model in Settings.');\n}\nif (!plan.video_prompt || !plan.title) throw new Error('The writing model left out the title or the video prompt. Run the workflow again.');\nconst s = $('Settings').first().json;\n// The request both the price check and the start send, so the price is for exactly this video.\nconst request = {\n  model: s.video_model,\n  prompt: plan.video_prompt + ' Look: ' + s.look + '.',\n  duration_seconds: s.seconds,\n  resolution: s.resolution,\n  aspect_ratio: '9:16',\n  audio: s.voice,\n  max_cost: s.max_cost_usd,\n};\nreturn [{ json: { ...plan, request, script_cost_usd: reply.usage?.cost_usd ?? null } }];"
+      },
+      "name": "Read the plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        300
+      ]
+    },
+    {
+      "id": "c60225ab-d295-5750-a89c-363f158a9ec0",
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.martllm.com/v1/video/generations",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ ...$json.request, validate: true }) }}",
+        "options": {
+          "timeout": 120000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "name": "Check the price",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "martllmApiKey01",
+          "name": "MartLLM API key"
+        }
+      }
+    },
+    {
+      "id": "9f215a24-408e-51d4-aadf-ba8e65827bfc",
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "9ec3c1cb-0401-5a4a-a8aa-71a43685a123",
+              "leftValue": "={{ $json.valid === true && $json.within_max_cost !== false }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Price OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1320,
+        300
+      ]
+    },
+    {
+      "id": "e77eb545-d4f8-5e47-ac37-c876594ff5e6",
+      "parameters": {
+        "errorMessage": "={{ $json.error?.message ? 'The video did not start: ' + $json.error.message.replace(/[.\\s]+$/, '') + '. Nothing was charged.' : ($json.object === 'quote' ? 'This video can cost up to $' + Number($json.max_cost_usd).toFixed(2) + ', more than max_cost_usd in Settings ($' + Number($('Settings').first().json.max_cost_usd).toFixed(2) + '). Nothing was made and nothing was charged.' : 'The video did not start. Nothing was charged.') }}"
+      },
+      "name": "Say why it did not start",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        1540,
+        520
+      ]
+    },
+    {
+      "id": "e35c25bb-788b-59cd-a302-e1dac4d38d93",
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.martllm.com/v1/video/generations",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            },
+            {
+              "name": "Idempotency-Key",
+              "value": "={{ $execution.id }}-video"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  ...$('Read the plan').first().json.request,\n  models: $('Settings').first().json.backup_video_models.split(',').map(s => s.trim()).filter(Boolean),\n  metadata: { template: 'faceless-vertical-video', title: $('Read the plan').first().json.title.slice(0, 100) }\n}) }}",
+        "options": {
+          "timeout": 120000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "name": "Start the video",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "martllmApiKey01",
+          "name": "MartLLM API key"
+        }
+      }
+    },
+    {
+      "id": "95a1c2c2-0706-5b68-a1c6-1f08c4dccbba",
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "6725f015-c7b2-5e3f-a1d9-7c092b8acfe0",
+              "leftValue": "={{ !!$json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Started?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1760,
+        300
+      ]
+    },
+    {
+      "id": "fa276f90-bd9e-5ffb-a351-633ef8755dec",
+      "parameters": {
+        "amount": 20
+      },
+      "name": "Wait 20 seconds",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1980,
+        300
+      ],
+      "webhookId": "e29d329d-f062-50c9-aab6-1478ac84f324"
+    },
+    {
+      "id": "e84b38db-ed11-5418-ab68-054723c0f8b0",
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.martllm.com/v1/video/generations/{{ $('Start the video').first().json.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "name": "Check the video",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2200,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "martllmApiKey01",
+          "name": "MartLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "a555d3b4-0944-5e04-a7eb-c64ba558b7f8",
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "bcce6a4a-fd9d-5f25-a4f2-1429a5217182",
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "succeeded",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Done"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "5cf35d89-3a4c-51b3-adf2-6dbae32e2f4b",
+                    "leftValue": "={{ ['queued', 'running'].includes($json.status) }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  },
+                  {
+                    "id": "747a7ce2-d3a1-5980-a329-27106eb081b6",
+                    "leftValue": "={{ $runIndex }}",
+                    "rightValue": 45,
+                    "operator": {
+                      "type": "number",
+                      "operation": "lt"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Still making it"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Not made"
+        }
+      },
+      "name": "Is it ready?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        2420,
+        300
+      ]
+    },
+    {
+      "id": "766ad7df-8c30-5254-a6b3-058432cb4a7c",
+      "parameters": {
+        "errorMessage": "={{ 'The video was not made: ' + ($json.error?.message ? String($json.error.message).replace(/[.\\s]+$/, '') : (['queued', 'running'].includes($json.status) ? 'still being made after 15 minutes; it will show in your MartLLM dashboard' : 'it ended as ' + $json.status)) + '. A video that is not made costs nothing.' }}"
+      },
+      "name": "Say why it failed",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        2640,
+        520
+      ]
+    },
+    {
+      "id": "14b105a1-6139-5abf-a885-6a56a1bf5a1d",
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.results[0].url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 300000,
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "video"
+            }
+          }
+        }
+      },
+      "name": "Download the video",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2640,
+        200
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "martllmApiKey01",
+          "name": "MartLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "cfd0ef5f-aa8b-59ce-ae6f-fdfb41cc327e",
+      "parameters": {
+        "resource": "file",
+        "operation": "upload",
+        "inputDataFieldName": "video",
+        "name": "={{ $('Read the plan').first().json.title.replace(/[\\\\/:*?\"<>|]/g, ' ').trim() }}.mp4",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "root",
+          "cachedResultName": "/ (Root folder)"
+        },
+        "options": {}
+      },
+      "name": "Save to Google Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        2860,
+        200
+      ]
+    },
+    {
+      "id": "2d2a2821-16c7-56bd-a644-c5c281a61e68",
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b3936417-15fa-57ca-a3ce-214562dd43a1",
+              "name": "Date",
+              "value": "={{ $now.toFormat('yyyy-MM-dd HH:mm') }}",
+              "type": "string"
+            },
+            {
+              "id": "316be3eb-ea49-572f-aaf2-ff09787258a3",
+              "name": "Idea",
+              "value": "={{ $('Read the plan').first().json.idea }}",
+              "type": "string"
+            },
+            {
+              "id": "a36e8416-72c0-52da-a80e-7681c02b91cf",
+              "name": "Title",
+              "value": "={{ $('Read the plan').first().json.title }}",
+              "type": "string"
+            },
+            {
+              "id": "70bb7398-0140-548d-a350-12340678ed8a",
+              "name": "Caption",
+              "value": "={{ $('Read the plan').first().json.caption }}",
+              "type": "string"
+            },
+            {
+              "id": "e37b2a14-1f4c-5d12-a7d4-b2474c92c82e",
+              "name": "Hashtags",
+              "value": "={{ $('Read the plan').first().json.hashtags }}",
+              "type": "string"
+            },
+            {
+              "id": "8df8c691-2b95-5f43-aed4-bf1a650659e2",
+              "name": "Video link",
+              "value": "=https://drive.google.com/file/d/{{ $json.id }}/view",
+              "type": "string"
+            },
+            {
+              "id": "9f7e4d5a-1130-5a86-ab76-f45cebb43686",
+              "name": "Seconds",
+              "value": "={{ String($('Settings').first().json.seconds) }}",
+              "type": "string"
+            },
+            {
+              "id": "e58ccfae-178f-5ace-aae0-ba42c5eb5c8a",
+              "name": "Cost (USD)",
+              "value": "={{ String($('Check the video').last().json.usage?.cost_usd ?? $('Check the video').last().json.estimated_cost_usd ?? '') }}",
+              "type": "string"
+            },
+            {
+              "id": "287cf233-e626-5ff3-a440-6db4cc662c9c",
+              "name": "Model",
+              "value": "={{ $('Check the video').last().json.model }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "name": "Row for the sheet",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3080,
+        200
+      ]
+    },
+    {
+      "id": "cba3ff9f-11ec-5399-ac22-734f5d1c8eb7",
+      "parameters": {
+        "resource": "sheet",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      },
+      "name": "Add a row to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        3300,
+        200
+      ]
+    },
+    {
+      "id": "f85f104e-7553-54d4-a6a6-eb49b4135286",
+      "parameters": {
+        "jsCode": "// Adds the title to the workflow's memory so tomorrow's run picks something new.\nconst memory = $getWorkflowStaticData('global');\nconst title = $('Read the plan').first().json.title;\nmemory.titles = [...(memory.titles || []), title].slice(-50);\nreturn [{ json: { ...$('Row for the sheet').first().json } }];"
+      },
+      "name": "Remember this video",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3520,
+        200
+      ]
+    },
+    {
+      "id": "dd927abb-df25-574f-a39b-1a1b1bf1ecc8",
+      "parameters": {
+        "content": "## Faceless vertical video from an idea\n\nGive it a channel topic (and an idea, or let it pick one). A chat model plans one vertical shot with a narrator line, a video model makes the 9:16 video with sound, the file is saved to your Google Drive and a row with the title, caption, link and cost is added to your Google Sheet. Run it by hand or let it run every day.\n\n### Set up (5 minutes)\n1. Get an API key at [martllm.com](https://martllm.com/go/n8n-faceless-video) and add credit.\n2. Open **Write the video plan** → Credential → Create new → **Header Auth**:\n   - Name: `Authorization`\n   - Value: `Bearer ` followed by your key\n   Every MartLLM step uses this one credential.\n3. Open **Save to Google Drive**, connect your Google account and pick the folder.\n4. Make a Google Sheet whose first row has these column names: `Date`, `Idea`, `Title`, `Caption`, `Hashtags`, `Video link`, `Seconds`, `Cost (USD)`, `Model`. Open **Add a row to Google Sheets**, connect your Google account and pick that sheet.\n5. Write your channel topic in **Settings**, then click **Execute workflow**. Turn the workflow on to make one video every day at 9:00.\n\n### What it costs\nThe workflow asks MartLLM for the price before it starts and stops if it is above `max_cost_usd`. On 2026-11-25 the price list showed $0.085 per second at 720p and $0.039 per second at 480p for the default model, so 8 seconds was about $0.68 or $0.31. The plan costs a fraction of a cent. A video that is not made costs nothing. Live prices: [martllm.com/models](https://martllm.com/models?type=video).",
+        "height": 760,
+        "width": 400
+      },
+      "name": "Note: start here",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -460,
+        0
+      ]
+    },
+    {
+      "id": "ba3d5b7e-1dc4-5ea0-a84b-4e1770344abf",
+      "parameters": {
+        "content": "### Change it here\n**Settings** holds the channel topic, an optional idea, the look, length (5 to 15 seconds), 480p or 720p, voice on or off, the video model with a backup, and the most one video may cost.",
+        "height": 260,
+        "width": 240,
+        "color": 5
+      },
+      "name": "Note: settings",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        0
+      ]
+    },
+    {
+      "id": "d34511ee-4812-509f-a384-6672261b1c57",
+      "parameters": {
+        "content": "### Price first, then the video\n**Check the price** asks what this exact video costs. Nothing is made and nothing is charged for asking. If the price is above your limit, or MartLLM refuses the request, the workflow stops here and shows MartLLM's own message.",
+        "height": 260,
+        "width": 660,
+        "color": 3
+      },
+      "name": "Note: price",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        0
+      ]
+    },
+    {
+      "id": "88805f08-c612-51d3-a9af-b52fa9903f92",
+      "parameters": {
+        "content": "### Waiting for the video\nMost videos take 1 to 5 minutes. The workflow checks every 20 seconds and stops waiting after 15 minutes (the video still finishes and shows in your MartLLM dashboard). If no provider is free, MartLLM retries by itself first.",
+        "height": 260,
+        "width": 660,
+        "color": 6
+      },
+      "name": "Note: waiting",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1920,
+        0
+      ]
+    },
+    {
+      "id": "b34216f6-fde9-524e-ac64-a862f7906153",
+      "parameters": {
+        "content": "### Where it goes\nThe file goes to Google Drive, because the MartLLM link needs your key and is kept for about 3 hours. The sheet row holds the Drive link. To post the video too, add a YouTube, TikTok or Instagram step after **Remember this video**.",
+        "height": 220,
+        "width": 880,
+        "color": 4
+      },
+      "name": "Note: after",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2800,
+        -60
+      ]
+    }
+  ],
+  "connections": {
+    "Run now": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every day": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Remember past videos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remember past videos": {
+      "main": [
+        [
+          {
+            "node": "Write the video plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write the video plan": {
+      "main": [
+        [
+          {
+            "node": "Read the plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read the plan": {
+      "main": [
+        [
+          {
+            "node": "Check the price",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check the price": {
+      "main": [
+        [
+          {
+            "node": "Price OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Price OK?": {
+      "main": [
+        [
+          {
+            "node": "Start the video",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Say why it did not start",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start the video": {
+      "main": [
+        [
+          {
+            "node": "Started?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Started?": {
+      "main": [
+        [
+          {
+            "node": "Wait 20 seconds",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Say why it did not start",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 20 seconds": {
+      "main": [
+        [
+          {
+            "node": "Check the video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check the video": {
+      "main": [
+        [
+          {
+            "node": "Is it ready?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is it ready?": {
+      "main": [
+        [
+          {
+            "node": "Download the video",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait 20 seconds",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Say why it failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download the video": {
+      "main": [
+        [
+          {
+            "node": "Save to Google Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Google Drive": {
+      "main": [
+        [
+          {
+            "node": "Row for the sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Row for the sheet": {
+      "main": [
+        [
+          {
+            "node": "Add a row to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add a row to Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Remember this video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

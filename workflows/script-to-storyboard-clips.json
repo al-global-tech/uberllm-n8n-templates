@@ -1,0 +1,695 @@
+{
+  "name": "Turn a long script into a storyboard of video clips, one per scene (MartLLM)",
+  "nodes": [
+    {
+      "id": "ee18e9f4-d6a6-5aaa-ad1d-390f9e1ee1b3",
+      "parameters": {},
+      "name": "Run now",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "id": "fd09f4b8-1484-50f2-afc8-cfff2463d40e",
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7741c207-c248-54c7-a90c-cc677b244607",
+              "name": "script",
+              "value": "Paste your script here. It can be a full voice-over, a blog post or a rough outline: the workflow cuts it into scenes and makes one clip for each.",
+              "type": "string"
+            },
+            {
+              "id": "ca8cabb5-9b06-596c-a16b-ab13f3725ee9",
+              "name": "max_scenes",
+              "value": 6,
+              "type": "number"
+            },
+            {
+              "id": "113242c8-437c-5595-ab2d-4d962baf1f60",
+              "name": "seconds_per_scene",
+              "value": 5,
+              "type": "number"
+            },
+            {
+              "id": "25cbbfcc-a2d5-5729-ae0e-e6a9a83bb334",
+              "name": "shape",
+              "value": "16:9",
+              "type": "string"
+            },
+            {
+              "id": "746fa701-c3a2-561e-a424-c71892c26b60",
+              "name": "resolution",
+              "value": "480p",
+              "type": "string"
+            },
+            {
+              "id": "bd1c621e-24e5-571f-ad8e-5cdec0372802",
+              "name": "sound",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "4864e411-1697-55cc-a1b9-43138928c1b8",
+              "name": "look",
+              "value": "Cinematic, realistic, soft natural light, the same color grade in every scene",
+              "type": "string"
+            },
+            {
+              "id": "93daabbc-fedd-5bcd-a71b-d0f0d0baf95c",
+              "name": "video_model",
+              "value": "venice/seedance-2-fast-t2v",
+              "type": "string"
+            },
+            {
+              "id": "fd41c472-7740-5df7-ac09-d2694f855767",
+              "name": "backup_video_models",
+              "value": "venice/seedance-2-5-flash-text-to-video-basic",
+              "type": "string"
+            },
+            {
+              "id": "23b07d23-3e72-5920-a43f-166e30ac6bae",
+              "name": "script_model",
+              "value": "deepseek/deepseek-v4.1-flash",
+              "type": "string"
+            },
+            {
+              "id": "18aae728-e7a0-5b80-a574-5cb5a77c6751",
+              "name": "max_total_usd",
+              "value": 5,
+              "type": "number"
+            },
+            {
+              "id": "c8a7d8fa-c852-50d1-ae8b-7326151e9001",
+              "name": "scene_instructions",
+              "value": "You turn a script into a storyboard for a video model. You get the script, the most scenes allowed, the seconds each clip lasts, and the look.\n\nCut the script into scenes in order. Each scene covers one idea of the script. If the script has more ideas than scenes allowed, merge neighbours; never drop the ending.\n\nFor each scene write:\n- text: the part of the script this scene covers, word for word where possible.\n- video_prompt: ONE continuous shot a video model can make in that many seconds. Say the subject, the place, the light and how the camera moves, in plain concrete words. Describe recurring people and places the same way in every scene so the clips match. No on-screen text, no logos, no brand names, no real people.\n\nAnswer with JSON only: {\"title\": \"a short title for the storyboard\", \"scenes\": [{\"text\": \"...\", \"video_prompt\": \"...\"}]}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "id": "e15344dc-de57-53ee-af63-4aa82d883ff4",
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.martllm.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  model: $json.script_model,\n  temperature: 0.5,\n  response_format: { type: 'json_object' },\n  messages: [\n    { role: 'system', content: $json.scene_instructions },\n    { role: 'user', content: 'At most ' + $json.max_scenes + ' scenes.\\nEach clip lasts ' + $json.seconds_per_scene + ' seconds.\\nLook: ' + $json.look + '\\n\\nScript:\\n' + $json.script }\n  ]\n}) }}",
+        "options": {
+          "timeout": 180000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "name": "Write the scene list",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "martllmApiKey01",
+          "name": "MartLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "a7dcad20-5f15-5d2a-ac5f-eee004a17915",
+      "parameters": {
+        "jsCode": "const reply = $input.first().json;\nif (reply.error?.message) throw new Error('MartLLM could not write the plan: ' + reply.error.message);\nconst text = reply.choices?.[0]?.message?.content || '';\nconst found = text.match(/\\{[\\s\\S]*\\}/);\nlet plan;\ntry { plan = JSON.parse(found ? found[0] : text); } catch (e) {\n  throw new Error('The writing model did not answer in the expected shape. Run the workflow again, or pick another script_model in Settings.');\n}\nconst s = $('Settings').first().json;\nconst scenes = (plan.scenes || []).filter((x) => x && x.video_prompt).slice(0, Number(s.max_scenes) || 6);\nif (!scenes.length) throw new Error('The writing model found no scenes in the script. Check the script in Settings and run again.');\n// One item per scene, with the request both the price check and the start send.\nreturn scenes.map((x, i) => ({ json: {\n  scene: i + 1,\n  title: String(plan.title || 'Storyboard'),\n  text: String(x.text || ''),\n  request: {\n    model: s.video_model,\n    prompt: x.video_prompt + ' Look: ' + s.look + '.',\n    duration_seconds: s.seconds_per_scene,\n    resolution: s.resolution,\n    aspect_ratio: s.shape,\n    audio: s.sound,\n  },\n} }));"
+      },
+      "name": "Split the scenes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        300
+      ]
+    },
+    {
+      "id": "0246cc83-0259-5e88-a23c-3fa7fb73f1ae",
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.martllm.com/v1/video/generations",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ ...$json.request, validate: true }) }}",
+        "options": {
+          "timeout": 120000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "name": "Price each scene",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "martllmApiKey01",
+          "name": "MartLLM API key"
+        }
+      }
+    },
+    {
+      "id": "38342be8-0bec-5c64-a103-229d46dde886",
+      "parameters": {
+        "jsCode": "// Adds up the price of every clip before any starts. Above max_total_usd, or a request MartLLM refuses: stop here, nothing is charged.\nconst scenes = $('Split the scenes').all().map((i) => i.json);\nconst quotes = $input.all().map((i) => i.json);\nconst limit = Number($('Settings').first().json.max_total_usd);\nconst usd = (x) => '$' + Number(x).toFixed(2);\nconst tidy = (m) => String(m).replace(/[.\\s]+$/, '');\nconst rows = scenes.map((sc, i) => {\n  const q = quotes[i] || {};\n  if (q.error?.message) throw new Error('MartLLM could not price scene ' + sc.scene + ': ' + tidy(q.error.message) + '. Nothing was made and nothing was charged.');\n  if (q.valid !== true) throw new Error('MartLLM could not price scene ' + sc.scene + '. Nothing was made and nothing was charged.');\n  return { ...sc, price_usd: q.cost_usd, most_usd: q.max_cost_usd };\n});\nconst most = rows.reduce((sum, r) => sum + r.most_usd, 0);\nif (most > limit) {\n  throw new Error(rows.length + ' clips can cost up to ' + usd(most) + ' (' + rows.map((r) => 'scene ' + r.scene + ' ' + usd(r.most_usd)).join(', ') + '), more than max_total_usd in Settings (' + usd(limit) + '). Nothing was made and nothing was charged. Raise the limit, or lower max_scenes, seconds_per_scene or resolution.');\n}\n// Each clip may use its price plus an equal share of what is left under the limit, so the whole run never passes max_total_usd.\nconst spare = (limit - most) / rows.length;\nreturn rows.map((r) => ({ json: { ...r, cap_usd: Math.floor((r.most_usd + spare) * 10000) / 10000 } }));"
+      },
+      "name": "Check the total",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        300
+      ]
+    },
+    {
+      "id": "7f5d4f05-e84c-5e58-ab83-7763411c8d86",
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.martllm.com/v1/video/generations",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            },
+            {
+              "name": "Idempotency-Key",
+              "value": "={{ $execution.id }}-scene-{{ $json.scene }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  ...$json.request,\n  max_cost: $json.cap_usd,\n  models: $('Settings').first().json.backup_video_models.split(',').map(s => s.trim()).filter(Boolean),\n  metadata: { template: 'script-to-storyboard', storyboard: $json.title.slice(0, 100), scene: String($json.scene) }\n}) }}",
+        "options": {
+          "timeout": 120000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "name": "Start each clip",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "martllmApiKey01",
+          "name": "MartLLM API key"
+        }
+      }
+    },
+    {
+      "id": "7a9dc25a-2055-59b9-a6f1-a7f9cf2b35b5",
+      "parameters": {
+        "jsCode": "// Keeps the jobs that started. A scene MartLLM refused is listed at the end with MartLLM's own message.\nconst replies = $input.all().map((i) => i.json);\nconst started = replies.filter((r) => r.id);\nconst tidy = (m) => String(m).replace(/[.\\s]+$/, '');\nif (!started.length) {\n  throw new Error('No clip could start: ' + tidy(replies[0]?.error?.message || 'MartLLM did not accept the request') + '. Nothing was charged.');\n}\nreturn started.map((r) => ({ json: r }));"
+      },
+      "name": "Note the starts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        300
+      ]
+    },
+    {
+      "id": "78679808-10fa-54ef-a12b-01a107df2308",
+      "parameters": {
+        "amount": 20
+      },
+      "name": "Wait 20 seconds",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1760,
+        300
+      ],
+      "webhookId": "058f4d6e-ce15-567c-a888-5ba3d5130f52"
+    },
+    {
+      "id": "6d421f37-fd09-5e4c-a044-2631b39fc5cc",
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.martllm.com/v1/video/generations/{{ $json.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "name": "Check each clip",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1980,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "martllmApiKey01",
+          "name": "MartLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "0b688bd3-d3b7-52cb-a4f5-f8a0de53d6d8",
+      "parameters": {
+        "jsCode": "// Looks at every job together. While any is still being made, all go round the loop again.\n// After 45 checks (15 minutes) it stops waiting; those jobs still finish and show in your MartLLM dashboard.\nconst jobs = $input.all().map((i) => i.json);\nconst busy = jobs.some((j) => ['queued', 'running'].includes(j.status));\nconst waiting = busy && $runIndex < 45;\nreturn jobs.map((j) => ({ json: { ...j, waiting } }));"
+      },
+      "name": "Any still being made?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        300
+      ]
+    },
+    {
+      "id": "79ef8c23-5180-544a-acfa-11109cc35f27",
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c0a1bb99-8296-5ff4-a2d6-b50662670cbc",
+              "leftValue": "={{ $json.waiting }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Keep waiting?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2420,
+        300
+      ]
+    },
+    {
+      "id": "bce589b4-f122-50d1-a6fb-53578335197e",
+      "parameters": {
+        "jsCode": "// Passes on the clips that were made. If none was, stop with MartLLM's own reasons.\nconst jobs = $input.all().map((i) => i.json);\nconst made = jobs.filter((j) => j.status === 'succeeded' && j.results?.[0]?.url);\nif (!made.length) {\n  throw new Error('No clip was made. ' + jobs.map((j) => 'Scene ' + j.metadata?.scene + ': ' + (j.error?.message ? String(j.error.message).replace(/[.\\s]+$/, '') : (['queued', 'running'].includes(j.status) ? 'still being made after 15 minutes; it will show in your MartLLM dashboard' : 'it ended as ' + j.status))).join('. ') + '. Nothing was charged.');\n}\nreturn made.map((j) => ({ json: j }));"
+      },
+      "name": "Sort the results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        300
+      ]
+    },
+    {
+      "id": "1eb8b0f6-19da-57dc-a5dd-3c00bf2ea01f",
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.results[0].url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 300000,
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "clip"
+            }
+          }
+        }
+      },
+      "name": "Download each clip",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2860,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "martllmApiKey01",
+          "name": "MartLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "a2840891-f636-5578-a32b-cc9d3278f98b",
+      "parameters": {
+        "jsCode": "// One row per scene, in order: the script text, the clip link, what it cost, and the file itself.\n// A scene that was not made stays in the list with the reason.\nconst scenes = $('Check the total').all().map((i) => i.json);\nconst starts = $('Start each clip').all().map((i) => i.json);\nconst jobs = $('Any still being made?').all().map((i) => i.json);\nconst made = $('Sort the results').all().map((i) => i.json);\nconst files = {};\n$input.all().forEach((item, i) => { if (item.binary?.clip) files[made[i].id] = item.binary.clip; });\nreturn scenes.map((sc, i) => {\n  const job = jobs.find((j) => j.metadata?.scene === String(sc.scene));\n  const row = { scene: sc.scene, storyboard: sc.title, text: sc.text, video_prompt: sc.request.prompt, seconds: sc.request.duration_seconds };\n  if (!job) return { json: { ...row, made: false, why: starts.find((r) => r.metadata?.scene === String(sc.scene))?.error?.message || starts[i]?.error?.message || 'MartLLM did not accept the request', cost_usd: 0 } };\n  if (job.status !== 'succeeded') return { json: { ...row, made: false, why: (job.error?.message ? String(job.error.message).replace(/[.\\s]+$/, '') : (['queued', 'running'].includes(job.status) ? 'still being made after 15 minutes; it will show in your MartLLM dashboard' : 'it ended as ' + job.status)), cost_usd: 0 } };\n  const out = { json: { ...row, made: true, clip_link: job.results[0].url, link_note: 'Needs your MartLLM key and is kept about 3 hours. The file is attached to this row.',\n    cost_usd: job.usage?.cost_usd ?? job.estimated_cost_usd, cost_is_final: job.usage?.cost_usd != null, model: job.model } };\n  if (files[job.id]) out.binary = { clip: { ...files[job.id], fileName: 'scene-' + String(sc.scene).padStart(2, '0') + '.mp4' } };\n  return out;\n});"
+      },
+      "name": "Clip list",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3080,
+        300
+      ]
+    },
+    {
+      "id": "8dee4bb1-5f12-53e1-a2a6-8cfbb21e29ba",
+      "parameters": {
+        "content": "## A storyboard of clips from a long script\n\nPaste a script. A chat model cuts it into scenes and writes one shot for each. The workflow adds up the price of all clips first, then makes every clip at the same time and gives you a list: scene number, the script text, the clip link, the cost, and the clip file itself.\n\n### Set up (2 minutes)\n1. Get an API key at [martllm.com](https://martllm.com/go/n8n-script-storyboard) and add credit.\n2. Open **Write the scene list** → Credential → Create new → **Header Auth**:\n   - Name: `Authorization`\n   - Value: `Bearer ` followed by your key\n   Every MartLLM step uses this one credential.\n3. Paste your script in **Settings** and click **Execute workflow**.\n\n### What it costs\nThe workflow asks MartLLM for the price of every clip before any starts, and stops if the total is above `max_total_usd`. On 2026-11-25 the price list showed $0.039 per second at 480p and $0.085 per second at 720p for the default model, so six 5 second clips at 480p were about $1.18. The scene list costs a fraction of a cent. A clip that is not made costs nothing. Live prices: [martllm.com/models](https://martllm.com/models?type=video).",
+        "height": 700,
+        "width": 400
+      },
+      "name": "Note: start here",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -460,
+        0
+      ]
+    },
+    {
+      "id": "138fba5a-2c74-5950-adb0-4280c8e90a9e",
+      "parameters": {
+        "content": "### Change it here\n**Settings** holds the script, the most scenes, seconds per clip (5 to 15), the shape (16:9, 9:16, 1:1), 480p or 720p, sound on or off, the look every clip shares, the video model with a backup, and the most the whole run may cost.",
+        "height": 260,
+        "width": 240,
+        "color": 5
+      },
+      "name": "Note: settings",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        0
+      ]
+    },
+    {
+      "id": "1d58c63b-d644-5845-a9ef-6661468e8c2d",
+      "parameters": {
+        "content": "### The total comes first\n**Price each scene** asks what each exact clip costs; nothing is charged for asking. **Check the total** stops the run when the sum is above your limit, or shows MartLLM's own message if a request is refused.",
+        "height": 260,
+        "width": 440,
+        "color": 3
+      },
+      "name": "Note: price",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        820,
+        0
+      ]
+    },
+    {
+      "id": "ac864226-3262-56d9-af9a-73c1b32fa146",
+      "parameters": {
+        "content": "### All clips at once\nEvery clip starts at the same time, so six clips take about as long as one: usually 1 to 5 minutes. The workflow checks every 20 seconds and stops waiting after 15 minutes. A clip that fails does not stop the others: it stays in the list with the reason.",
+        "height": 260,
+        "width": 1100,
+        "color": 6
+      },
+      "name": "Note: waiting",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1480,
+        0
+      ]
+    },
+    {
+      "id": "911e8166-f842-5ea0-a400-4761ea1a873d",
+      "parameters": {
+        "content": "### What you get\n**Clip list** has one row per scene with the file attached in the `clip` field. The clip link needs your key and is kept about 3 hours, so to keep the clips add a Google Drive, S3 or YouTube step after **Clip list**. To join them into one film, use a video editor or ffmpeg.",
+        "height": 260,
+        "width": 480,
+        "color": 4
+      },
+      "name": "Note: after",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2800,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Run now": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Write the scene list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write the scene list": {
+      "main": [
+        [
+          {
+            "node": "Split the scenes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split the scenes": {
+      "main": [
+        [
+          {
+            "node": "Price each scene",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Price each scene": {
+      "main": [
+        [
+          {
+            "node": "Check the total",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check the total": {
+      "main": [
+        [
+          {
+            "node": "Start each clip",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start each clip": {
+      "main": [
+        [
+          {
+            "node": "Note the starts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Note the starts": {
+      "main": [
+        [
+          {
+            "node": "Wait 20 seconds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 20 seconds": {
+      "main": [
+        [
+          {
+            "node": "Check each clip",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check each clip": {
+      "main": [
+        [
+          {
+            "node": "Any still being made?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any still being made?": {
+      "main": [
+        [
+          {
+            "node": "Keep waiting?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keep waiting?": {
+      "main": [
+        [
+          {
+            "node": "Wait 20 seconds",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sort the results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sort the results": {
+      "main": [
+        [
+          {
+            "node": "Download each clip",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download each clip": {
+      "main": [
+        [
+          {
+            "node": "Clip list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

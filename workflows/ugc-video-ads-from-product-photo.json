@@ -1,0 +1,625 @@
+{
+  "name": "Make UGC video ads from a product photo with Kling 3 and Gemini (MartLLM)",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Make a video ad from a product photo",
+        "formDescription": "Upload one clear photo of your product and say what the ad should get across. The video is ready in 2 to 7 minutes and downloads on this page.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Product photo",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "acceptFileTypes": ".jpg, .jpeg, .png, .webp",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Product name",
+              "placeholder": "e.g. Canvas Runner sneaker",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "What should the ad say?",
+              "fieldType": "textarea",
+              "placeholder": "e.g. Light, breathable, machine washable. For busy commuters. Casual and honest.",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Video length",
+              "fieldType": "dropdown",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "5 seconds"
+                  },
+                  {
+                    "option": "10 seconds"
+                  },
+                  {
+                    "option": "15 seconds"
+                  }
+                ]
+              }
+            },
+            {
+              "fieldLabel": "Voice and sound",
+              "fieldType": "dropdown",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Yes, a person talks"
+                  },
+                  {
+                    "option": "No, silent video"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "buttonLabel": "Make my video"
+        }
+      },
+      "id": "17acc932-6e0b-5f59-904c-802cf1fa21e9",
+      "name": "Product form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "70f65cd5-8a12-58ed-83c2-46c449b2c7a4"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Turns the uploaded photo into a picture the API can read, and reads the form.\nconst item = $input.first();\nconst files = item.binary || {};\nconst key = Object.keys(files)[0];\nif (!key) throw new Error('Add a product photo to the form.');\nconst buffer = await this.helpers.getBinaryDataBuffer(0, key);\n// A request can be up to 10 MB, and a photo grows by a third when it is sent as text.\nif (buffer.length > 7 * 1024 * 1024) {\n  throw new Error('The photo is bigger than 7 MB. Use a smaller photo, for example a screenshot of it.');\n}\nconst type = files[key].mimeType || 'image/jpeg';\nif (!/^image\\/(png|jpe?g|webp)$/.test(type)) {\n  throw new Error('Use a JPG, PNG or WebP photo.');\n}\nconst form = item.json;\nreturn [{\n  json: {\n    product: String(form['Product name'] || '').trim(),\n    brief: String(form['What should the ad say?'] || '').trim(),\n    seconds: parseInt(String(form['Video length'] || '5'), 10),\n    audio: !String(form['Voice and sound'] || 'Yes').startsWith('No'),\n    image: `data:${type};base64,${buffer.toString('base64')}`,\n  },\n}];"
+      },
+      "id": "ddbe6074-da4e-5c56-9bd9-80aee591572f",
+      "name": "Get the photo ready",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d30f6450-5659-5292-ad48-0060bf1b7a5a",
+              "name": "video_model",
+              "value": "kling/kling-v3-standard-image-to-video",
+              "type": "string"
+            },
+            {
+              "id": "54b6e38f-eece-5edf-b02b-cf9e391eedac",
+              "name": "backup_video_models",
+              "value": "kling/kling-o3-standard-image-to-video, vidu/vidu-q3-image-to-video",
+              "type": "string"
+            },
+            {
+              "id": "a61668ea-0143-532b-9719-cf46c2aca6e4",
+              "name": "script_model",
+              "value": "google/gemini-3-flash",
+              "type": "string"
+            },
+            {
+              "id": "24c78299-90c0-5860-94c7-2d90af14ae6e",
+              "name": "max_cost_usd",
+              "value": 3,
+              "type": "number"
+            },
+            {
+              "id": "442f590d-0a21-5884-b626-b0d622ed69ee",
+              "name": "script_instructions",
+              "value": "You write short UGC-style video ads for online stores. You get one product photo, the product name, what the ad should say, the video length and whether the video has a voice.\n\nThe photo becomes the first frame of the video. The video must start from exactly what is in the photo and keep the product looking the same the whole time: same shape, colors, label and printed text.\n\nWrite ONE continuous shot that a phone could film: a real person (a creator) showing or using the product in an everyday place, natural light, handheld feel. Say what the camera does, what the person does and where they are, in plain concrete words. Keep it to what can happen in the video length.\n\nNever add on-screen text, logos, prices, discounts or claims that are not in the brief. Never promise health or medical results.\n\nIf the video has a voice, the person says one short line out loud that fits the video length (about 2.5 words per second). Put it in the video_prompt in quotes, after 'says:'. If there is no voice, spoken_line is an empty string.\n\nAnswer with JSON only: {\"video_prompt\": \"...\", \"spoken_line\": \"...\", \"ad_caption\": \"a caption for the post, at most 125 characters\"}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "f992978f-ad54-5e9e-9443-e19759413929",
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.martllm.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 120000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  model: $json.script_model,\n  temperature: 0.7,\n  response_format: { type: 'json_object' },\n  messages: [\n    { role: 'system', content: $json.script_instructions },\n    { role: 'user', content: [\n      { type: 'text', text: 'Product: ' + $json.product + '\\nWhat the ad should say: ' + $json.brief + '\\nVideo length: ' + $json.seconds + ' seconds\\nThe video has a voice: ' + ($json.audio ? 'yes' : 'no') },\n      { type: 'image_url', image_url: { url: $json.image } }\n    ] }\n  ]\n}) }}"
+      },
+      "id": "2140eba5-7872-5c46-a4be-1e6636965c30",
+      "name": "Write the ad script",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "martllmApiKey01",
+          "name": "MartLLM API key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Reads the script the model wrote. Models sometimes wrap JSON in ``` fences.\nconst reply = $input.first().json;\nconst text = reply.choices?.[0]?.message?.content || '';\nlet plan;\ntry {\n  plan = JSON.parse(text.replace(/^\\s*```(?:json)?\\s*/i, '').replace(/\\s*```\\s*$/, ''));\n} catch (e) {\n  throw new Error('The script model did not answer in the expected shape. Run the workflow again, or pick another script model in Settings.');\n}\nif (!plan.video_prompt) throw new Error('The script model returned no video prompt. Run the workflow again.');\nreturn [{ json: { ...plan, script_cost_usd: reply.usage?.cost_usd ?? null } }];"
+      },
+      "id": "e668895b-0713-5a9c-9cd9-be2a40028af1",
+      "name": "Read the script",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.martllm.com/v1/video/generations",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 120000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            },
+            {
+              "name": "Idempotency-Key",
+              "value": "={{ $execution.id }}-video"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  model: $('Settings').first().json.video_model,\n  models: $('Settings').first().json.backup_video_models.split(',').map(s => s.trim()).filter(Boolean),\n  prompt: $json.video_prompt,\n  image_url: $('Settings').first().json.image,\n  duration_seconds: $('Settings').first().json.seconds,\n  audio: $('Settings').first().json.audio,\n  max_cost: $('Settings').first().json.max_cost_usd,\n  metadata: { template: 'ugc-video-ad-form', product: $('Settings').first().json.product.slice(0, 100) }\n}) }}"
+      },
+      "id": "ff943b52-c461-5004-9175-d366378af90e",
+      "name": "Start the video",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "martllmApiKey01",
+          "name": "MartLLM API key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 20
+      },
+      "id": "b2b5881f-c163-509f-9dec-dcd055b6f018",
+      "name": "Wait 20 seconds",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1320,
+        300
+      ],
+      "webhookId": "0b301f8d-89fb-50a6-a3ad-97db706b0336"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.martllm.com/v1/video/generations/{{ $('Start the video').first().json.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 120000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        }
+      },
+      "id": "4c902857-282a-5695-bba2-9b4352d6fe19",
+      "name": "Check the video",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "martllmApiKey01",
+          "name": "MartLLM API key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "9fbc38ff-ff5d-5bd5-8850-ffe039d440ff",
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "succeeded",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Done"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "3c688fae-6d1f-5a22-be67-ff224285e9aa",
+                    "leftValue": "={{ ['queued', 'running'].includes($json.status) }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  },
+                  {
+                    "id": "1321a632-8186-513d-8426-1695668cb2af",
+                    "leftValue": "={{ $runIndex }}",
+                    "rightValue": 36,
+                    "operator": {
+                      "type": "number",
+                      "operation": "lt"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Still making it"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Not made"
+        }
+      },
+      "id": "dc489c55-139c-552c-9f81-8574c94c5b96",
+      "name": "Is it ready?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1760,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.results[0].url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 120000,
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "video"
+            }
+          }
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        }
+      },
+      "id": "7e9703e7-ea1b-53a7-b9c9-8cae03af3ccb",
+      "name": "Download the video",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1980,
+        200
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "martllmApiKey01",
+          "name": "MartLLM API key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "returnBinary",
+        "completionTitle": "Your video is ready",
+        "completionMessage": "Your video ad is downloading.",
+        "inputDataFieldName": "video",
+        "options": {}
+      },
+      "id": "33f470f7-0b65-5da2-8f44-21048d9081cc",
+      "name": "Give the video back",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 1,
+      "position": [
+        2200,
+        200
+      ],
+      "webhookId": "09801f8f-c921-5019-8ac0-08562480da22"
+    },
+    {
+      "parameters": {
+        "errorMessage": "={{ $json.error?.message || ($json.status === 'queued' || $json.status === 'running' ? 'The video is taking longer than 12 minutes. It is still being made: find it later in Dashboard, Activity at martllm.com.' : 'The video was not made (' + $json.status + '). Nothing was charged.') }}"
+      },
+      "id": "d18c818a-342d-571e-9121-a7b730f5ed6f",
+      "name": "Say why it failed",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        1980,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Make UGC video ads from a product photo\n\nUpload a product photo and a short brief. Gemini 3 Flash looks at the photo and writes the ad as one shot, then Kling 3 Standard turns your photo into a short creator-style video with voice and sound. The video downloads on the form page.\n\n### Set up (2 minutes)\n1. Get a MartLLM API key at [martllm.com](https://martllm.com/go/n8n-ugc-video-ads) and add credit.\n2. Open **Write the ad script** → Credential → Create new → **Header Auth**:\n   - Name: `Authorization`\n   - Value: `Bearer ` followed by your key\n   The other MartLLM steps use the same credential.\n3. Activate the workflow, open **Product form** and copy its link. Share the link with anyone on your team who needs ads.\n\n### What it costs\nKling 3 Standard, 5 seconds: $0.42 with voice, $0.28 silent (MartLLM price list, Nov 28 2026). The script costs about a tenth of a cent. A video that is not made costs nothing. Live prices: [martllm.com/models](https://martllm.com/models?type=video).",
+        "height": 620,
+        "width": 380
+      },
+      "id": "2a136849-c6fe-530b-aacf-4b8a9374781e",
+      "name": "Note: start here",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -420,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Change it here\n**Settings** holds the video model, backup models (tried when the first is busy), the script model, the most one video may cost, and the script instructions (tone, rules).\n\nAny image-to-video model on [martllm.com/models](https://martllm.com/models?type=video) works: copy its id.",
+        "height": 440,
+        "width": 220,
+        "color": 5
+      },
+      "id": "1f1708a9-750d-53cd-a730-99202b862e2d",
+      "name": "Note: settings",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        380,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Waiting for the video\nVideos usually take 2 to 5 minutes, sometimes up to 7. The workflow checks every 20 seconds and gives up after 12 minutes (the video still finishes and stays in your MartLLM dashboard under Activity). If one provider can't make it, MartLLM moves the job to the next one by itself.",
+        "height": 220,
+        "width": 600,
+        "color": 6
+      },
+      "id": "6226217d-2c76-53ab-a88c-e447f7c2a013",
+      "name": "Note: waiting",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1280,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Where the video goes\nIt downloads on the form page. For 10 to 15 second videos (big files), or to keep every video, replace **Give the video back** with Google Drive, Slack, Telegram or any node: the file is in the `video` field. MartLLM keeps it for about 3 hours.",
+        "height": 180,
+        "width": 420,
+        "color": 4
+      },
+      "id": "ccf00485-dfad-5644-bf3f-b44f67c1263c",
+      "name": "Note: after",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1940,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Product form": {
+      "main": [
+        [
+          {
+            "node": "Get the photo ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get the photo ready": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Write the ad script",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write the ad script": {
+      "main": [
+        [
+          {
+            "node": "Read the script",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read the script": {
+      "main": [
+        [
+          {
+            "node": "Start the video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start the video": {
+      "main": [
+        [
+          {
+            "node": "Wait 20 seconds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 20 seconds": {
+      "main": [
+        [
+          {
+            "node": "Check the video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check the video": {
+      "main": [
+        [
+          {
+            "node": "Is it ready?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is it ready?": {
+      "main": [
+        [
+          {
+            "node": "Download the video",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait 20 seconds",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Say why it failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download the video": {
+      "main": [
+        [
+          {
+            "node": "Give the video back",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

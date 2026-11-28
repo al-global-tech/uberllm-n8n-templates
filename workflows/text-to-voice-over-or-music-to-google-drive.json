@@ -1,0 +1,783 @@
+{
+  "name": "Turn text into a voice-over or a music track saved to Google Drive (MartLLM)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Turn text into a voice-over or a music track, saved to Google Drive\n\nOpen the form, choose **Voice-over** or **Music** and type. A voice-over reads your text aloud. Music makes a track from your description (\"calm lo-fi beat with soft piano\"). The MP3 is saved to your Google Drive and the form shows its link and what it cost.\n\n### Set up (5 minutes)\n1. Get an API key at [martllm.com](https://martllm.com/go/n8n-voice-music) and add credit.\n2. Open **Make the voice-over** → Credential → Create new → **Header Auth**:\n   - Name: `Authorization`\n   - Value: `Bearer ` followed by your key\n   The other MartLLM steps use the same credential. If you already made it for another MartLLM or UberLLM template, pick that one.\n3. Open **Save to Google Drive**: connect Google Drive and pick a folder.\n4. Activate the workflow, open **Audio form** and copy its link. Share it with anyone on your team.\n\n### Price\nListed on 2026-11-25: a voice-over with Kokoro costs $0.0031 per started 1,000 characters of text. A music track with ACE-Step 1.5 costs $0.03, whatever its length (60 to 210 seconds). Prices move: [live prices](https://martllm.com/models).\n\n### What you pay\n- Each request costs what the seller that made it charged. No MartLLM fee on requests.\n- Anything that is not made costs nothing.\n- Adding credit by card costs 5.5% + $0.50. Credit does not expire while your account is open.\n",
+        "height": 800,
+        "width": 520
+      },
+      "id": "e8ecc368-7c46-5dc6-8821-48652587d475",
+      "name": "Note: start here",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -680,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Change it here\n**Settings** holds the voice model and voice, the music model and track length in seconds, and the most one file may cost.\n\nEach model's page on [martllm.com/models](https://martllm.com/models) lists its voices and the track lengths it makes.",
+        "height": 330,
+        "width": 240,
+        "color": 5
+      },
+      "id": "8491a018-f38d-5685-a08d-3ab7cd5f1bbf",
+      "name": "Note: settings",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        400,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Waiting for the music\nA voice-over comes back in the same request. Music is a job: the workflow checks every 10 seconds and gives up after 10 minutes (the track still finishes and shows in your MartLLM dashboard under Activity). If something fails, the form stops with the reason the API gave, and nothing is charged.",
+        "height": 170,
+        "width": 640,
+        "color": 6
+      },
+      "id": "33a6d20d-5439-5c40-94e4-d2c45cf17879",
+      "name": "Note: waiting for music",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1080,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "formTitle": "Make a voice-over or a music track",
+        "formDescription": "Choose what you want and type. The MP3 is saved to Google Drive and its link shows on this page. A voice-over takes a few seconds, music up to a few minutes.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "What do you want?",
+              "fieldType": "dropdown",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Voice-over (reads my text aloud)"
+                  },
+                  {
+                    "option": "Music (a track from my description)"
+                  }
+                ]
+              }
+            },
+            {
+              "fieldLabel": "Text to read aloud, or the music you want",
+              "fieldType": "textarea",
+              "placeholder": "e.g. Welcome to our store. Free shipping this week only.   or   Calm lo-fi beat with soft piano, no vocals",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "File name",
+              "placeholder": "optional, e.g. spring-sale-intro"
+            }
+          ]
+        },
+        "options": {
+          "buttonLabel": "Make my audio"
+        }
+      },
+      "id": "815dcbf3-889d-5f49-aafd-454a59e3bab9",
+      "name": "Audio form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        200
+      ],
+      "webhookId": "633e07f9-0a82-5e6c-aea1-c4c6612790aa"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Reads the form and names the file.\nconst f = $input.first().json;\nconst text = String(f['Text to read aloud, or the music you want'] || '').trim();\nif (!text) throw new Error('Write the text to read aloud, or describe the music.');\nconst music = String(f['What do you want?'] || '').startsWith('Music');\nconst stamp = new Date().toISOString().slice(0, 16).replace(/[T:]/g, '-');\nconst name = String(f['File name'] || '').replace(/[^\\p{L}\\p{N} _-]+/gu, ' ').trim().slice(0, 80)\n  || (music ? 'music-' : 'voice-over-') + stamp;\nreturn [{ json: { text, music, file_name: name + '.mp3' } }];"
+      },
+      "id": "139ede84-db87-5831-bec1-0d10a2b2155b",
+      "name": "Read the form",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "51f63a91-e399-5c8e-9e8c-8d77dfd0028d",
+              "name": "voice_model",
+              "value": "venice/kokoro-tts",
+              "type": "string"
+            },
+            {
+              "id": "b1d1244b-e43c-5124-b58b-2a034ac9d3e9",
+              "name": "voice",
+              "value": "af_heart",
+              "type": "string"
+            },
+            {
+              "id": "3d5e9e2f-18f6-52e8-98c4-2892900554a6",
+              "name": "music_model",
+              "value": "venice/ace-step-15",
+              "type": "string"
+            },
+            {
+              "id": "15ad688d-41c9-596f-975f-471535a52234",
+              "name": "music_seconds",
+              "value": 60,
+              "type": "number"
+            },
+            {
+              "id": "b0e1a5db-e01e-5ef3-9585-497fc4f83ee7",
+              "name": "max_cost_usd",
+              "value": 1,
+              "type": "number"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "67c51547-5894-55de-8d58-c379e15b141d",
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        440,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "2b18bb05-0bfb-5921-b9b8-e13e22bcd05d",
+              "leftValue": "={{ $json.music }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "2c8e7b69-51f4-5c7e-974c-fa9abab20f72",
+      "name": "Music?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        660,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.martllm.com/v1/audio/speech",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  model: $json.voice_model,\n  input: $json.text,\n  voice: $json.voice,\n  response_format: 'mp3',\n  max_cost: $json.max_cost_usd,\n  metadata: { template: 'text-to-audio-drive' }\n}) }}",
+        "options": {
+          "timeout": 180000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "file",
+              "outputPropertyName": "audio"
+            }
+          }
+        }
+      },
+      "id": "addcd950-e942-56ab-956b-f4de1ef01760",
+      "name": "Make the voice-over",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        360
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "martllmApiKey01",
+          "name": "MartLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// The answer is the audio file itself. Its cost and request id come in the headers.\n// When the API refuses, the \"file\" is its JSON error: read it and stop with its message.\nconst item = $input.first();\nconst h = item.json.headers || {};\nif (item.json.error && !item.binary) throw new Error(typeof item.json.error === 'string' ? item.json.error : (item.json.error.message || 'The voice-over was not made.'));\nif (Number(item.json.statusCode) >= 400) {\n  let why = 'The voice-over was not made (HTTP ' + item.json.statusCode + '). Nothing was charged.';\n  try {\n    const body = JSON.parse((await this.helpers.getBinaryDataBuffer(0, 'audio')).toString('utf8'));\n    if (body.error?.message) why = body.error.message;\n  } catch (e) { /* not JSON: keep the plain message */ }\n  throw new Error(why);\n}\nconst s = $('Settings').first().json;\nconst cost = h['x-uberllm-cost-usd'];\nreturn [{\n  json: { kind: 'Voice-over', file_name: s.file_name, cost_usd: cost != null ? Number(cost) : null, cost_is_final: true, request_id: h['x-request-id'] || null },\n  binary: { audio: { ...item.binary.audio, fileName: s.file_name } },\n}];"
+      },
+      "id": "b657c1ab-85f5-5467-a7d6-a66cfd3d9bb0",
+      "name": "Read the voice-over",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.martllm.com/v1/music/generations",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            },
+            {
+              "name": "Idempotency-Key",
+              "value": "={{ $execution.id }}-music"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  model: $json.music_model,\n  prompt: $json.text,\n  duration_seconds: $json.music_seconds,\n  max_cost: $json.max_cost_usd,\n  metadata: { template: 'text-to-audio-drive' }\n}) }}",
+        "options": {
+          "timeout": 120000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "c776874a-0c9f-57b4-a00f-de2dead75b9e",
+      "name": "Start the music",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        60
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "martllmApiKey01",
+          "name": "MartLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7e094f99-4267-5bc9-bd50-2557ff090e92",
+              "leftValue": "={{ !!$json.id }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "92281e39-2825-512b-aff6-065b3c27fdf3",
+      "name": "Music started?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1100,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 10
+      },
+      "id": "edaa3bf1-aea9-5624-8de9-794938b74ab2",
+      "name": "Wait 10 seconds",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1320,
+        0
+      ],
+      "webhookId": "e8916c08-e879-57af-b1dd-f476dc21cfc9"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.martllm.com/v1/music/generations/{{ $('Start the music').first().json.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "72ff7e7b-7972-5bd0-a8a7-36ab9fd3e0af",
+      "name": "Check the music",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "martllmApiKey01",
+          "name": "MartLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "ebd09bb3-a8fc-5493-b7bb-3e4731422824",
+                    "leftValue": "={{ $json.status }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "succeeded"
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "Done"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "e5ff1153-18f7-59e7-b3f3-8d3cfd411772",
+                    "leftValue": "={{ ['queued', 'running'].includes($json.status) }}",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  },
+                  {
+                    "id": "9197c0d0-0303-5b41-a81a-db27d79c6b81",
+                    "leftValue": "={{ $runIndex }}",
+                    "operator": {
+                      "type": "number",
+                      "operation": "lt"
+                    },
+                    "rightValue": 60
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "Still making it"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Not made"
+        }
+      },
+      "id": "0e491ede-4ebc-51de-9fbf-ae57c038ea66",
+      "name": "Is it ready?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1760,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.results[0].url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 300000,
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "audio"
+            }
+          }
+        }
+      },
+      "id": "c3f98720-ab98-5228-9c13-7186e00d8feb",
+      "name": "Download the music",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1980,
+        -100
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "martllmApiKey01",
+          "name": "MartLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "// The track is downloaded. The exact charge can arrive up to 30 seconds after the file,\n// so until then the price given at the start is shown.\nconst item = $input.first();\nconst job = item.json;\nconst start = $('Start the music').first().json;\nconst s = $('Settings').first().json;\nconst final = job.usage?.cost_usd != null;\n// A music model may answer in FLAC or WAV, not MP3: the file keeps the type it came in.\nconst ext = String(item.binary.audio.fileExtension || (item.binary.audio.mimeType || '').split('/')[1] || 'mp3').replace(/^x-/, '');\nconst fileName = s.file_name.replace(/\\.mp3$/, '.' + ext);\nreturn [{\n  json: { kind: 'Music', file_name: fileName, cost_usd: final ? job.usage.cost_usd : (start.estimated_cost_usd ?? null), cost_is_final: final, request_id: job.id },\n  binary: { audio: { ...item.binary.audio, fileName } },\n}];"
+      },
+      "id": "78dcd873-2a23-5800-9b57-cf40d10902c4",
+      "name": "Read the music",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "errorMessage": "={{ $json.error?.message || (typeof $json.error === 'string' ? $json.error : '') || (['queued', 'running'].includes($json.status) ? 'The music is taking longer than 10 minutes. It is still being made: find it later in your MartLLM dashboard under Activity.' : 'The music was not made' + ($json.status ? ' (' + $json.status + ')' : '') + '. Nothing was charged.') }}"
+      },
+      "id": "22176cfa-830f-54f3-ac6d-b115bc62f9ac",
+      "name": "Say why it failed",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        1980,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "upload",
+        "inputDataFieldName": "audio",
+        "name": "={{ $json.file_name }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "root",
+          "cachedResultName": "/ (Root folder)"
+        },
+        "options": {}
+      },
+      "id": "151b89d3-6a02-5b6a-a7e1-47c64f29717a",
+      "name": "Save to Google Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        2420,
+        200
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "googleDrive01",
+          "name": "Google Drive account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "text",
+        "completionTitle": "={{ ($('Read the voice-over').isExecuted ? $('Read the voice-over').first().json : $('Read the music').first().json).kind + ' saved to Google Drive' }}",
+        "completionMessage": "={{ ($('Read the voice-over').isExecuted ? $('Read the voice-over').first().json : $('Read the music').first().json).file_name + ' is in your Google Drive: ' + ($json.webViewLink || ('https://drive.google.com/file/d/' + $json.id + '/view')) + (($('Read the voice-over').isExecuted ? $('Read the voice-over').first().json : $('Read the music').first().json).cost_usd == null ? '' : (($('Read the voice-over').isExecuted ? $('Read the voice-over').first().json : $('Read the music').first().json).cost_is_final ? '. Cost: $' : '. Cost: about $') + ($('Read the voice-over').isExecuted ? $('Read the voice-over').first().json : $('Read the music').first().json).cost_usd) }}",
+        "options": {}
+      },
+      "id": "73dd9026-013e-570f-82b2-a1d3487fd6c7",
+      "name": "Show the link",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 1,
+      "position": [
+        2640,
+        200
+      ],
+      "webhookId": "ade8576f-ae48-5d23-b63a-df12272f2075"
+    }
+  ],
+  "connections": {
+    "Audio form": {
+      "main": [
+        [
+          {
+            "node": "Read the form",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read the form": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Music?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Music?": {
+      "main": [
+        [
+          {
+            "node": "Start the music",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Make the voice-over",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Make the voice-over": {
+      "main": [
+        [
+          {
+            "node": "Read the voice-over",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read the voice-over": {
+      "main": [
+        [
+          {
+            "node": "Save to Google Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start the music": {
+      "main": [
+        [
+          {
+            "node": "Music started?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Music started?": {
+      "main": [
+        [
+          {
+            "node": "Wait 10 seconds",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Say why it failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 10 seconds": {
+      "main": [
+        [
+          {
+            "node": "Check the music",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check the music": {
+      "main": [
+        [
+          {
+            "node": "Is it ready?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is it ready?": {
+      "main": [
+        [
+          {
+            "node": "Download the music",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait 10 seconds",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Say why it failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download the music": {
+      "main": [
+        [
+          {
+            "node": "Read the music",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read the music": {
+      "main": [
+        [
+          {
+            "node": "Save to Google Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Google Drive": {
+      "main": [
+        [
+          {
+            "node": "Show the link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "description": "A form turns text into a spoken voice-over (Kokoro) or a description into a music track (ACE-Step 1.5), saves the MP3 to Google Drive and shows its link and cost."
+  },
+  "tags": []
+}

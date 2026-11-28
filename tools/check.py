@@ -33,10 +33,10 @@ for f in sorted(WF.glob('*.json')):
         missing = [k for k in NEED if k not in n]
         if missing:
             problems.append(f'{f.name}: node {n.get("name")} lacks {missing}')
-        if n['type'] == 'n8n-nodes-base.httpRequest' and 'api.uberllm.dev' in json.dumps(n['parameters']) + n['parameters'].get('url', ''):
+        if n['type'] == 'n8n-nodes-base.httpRequest' and re.search(r'api\.(uberllm\.dev|martllm\.com)', json.dumps(n['parameters']) + n['parameters'].get('url', '')):
             if n['parameters'].get('genericAuthType') != 'httpHeaderAuth' or 'httpHeaderAuth' not in n.get('credentials', {}):
                 problems.append(f'{f.name}: {n["name"]} calls UberLLM without the Header Auth credential')
-    if not any(n['type'] == 'n8n-nodes-base.manualTrigger' for n in wf['nodes']):
+    if not any(n['type'].lower().endswith('trigger') for n in wf['nodes']):
         problems.append(f'{f.name}: no trigger')
     for src, outs in wf['connections'].items():
         if src not in names:

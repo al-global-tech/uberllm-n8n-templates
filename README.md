@@ -72,6 +72,27 @@ or copy [`skills/ad-creative`](skills/ad-creative) into `~/.claude/skills/` (Cla
 your agent's skills folder. Then ask for "ad creatives from this product photo". The skill
 prices a run first and asks before it spends.
 
+## More workflows: ads, product images, voice, music and a model router
+
+Eight more workflows, each run end to end in n8n 2.49.8 against the live API on 2026-11-28
+(with Google Sheets and Drive swapped for stand-in steps). They use the credential
+`MartLLM API key` (Header Auth, `Authorization: Bearer <your key>`). The cost column is what
+that test run was billed.
+
+| Workflow | What it does | Test run |
+|---|---|---|
+| [`ugc-video-ads-from-product-photo.json`](https://raw.githubusercontent.com/al-global-tech/uberllm-n8n-templates/main/workflows/ugc-video-ads-from-product-photo.json) | A form: upload a product photo and a brief, get a creator-style video ad (Gemini 3 Flash writes the shot, Kling 3 Standard animates the photo) | 5 s silent: $0.28 |
+| [`ad-video-variants-from-product-photo.json`](https://raw.githubusercontent.com/al-global-tech/uberllm-n8n-templates/main/workflows/ad-video-variants-from-product-photo.json) | A form: one product photo becomes 2 to 5 video ad versions; the price of each is shown before anything is made, then a zip | 2 versions, 5 s, 720p: $0.77 |
+| [`ad-creative-test-set-from-product-brief.json`](https://raw.githubusercontent.com/al-global-tech/uberllm-n8n-templates/main/workflows/ad-creative-test-set-from-product-brief.json) | A form: 5 ad angles with headlines, each image in 1:1, 4:5 and 9:16, saved to Google Drive and a sheet | 15 images: $0.12 |
+| [`bulk-product-images-from-google-sheet.json`](https://raw.githubusercontent.com/al-global-tech/uberllm-n8n-templates/main/workflows/bulk-product-images-from-google-sheet.json) | One product image per Google Sheet row, from a prompt or from a product photo, saved to Drive and written back to the row | 2 images: $0.021 |
+| [`faceless-vertical-video-to-drive-and-sheets.json`](https://raw.githubusercontent.com/al-global-tech/uberllm-n8n-templates/main/workflows/faceless-vertical-video-to-drive-and-sheets.json) | A daily faceless 9:16 video with a narrator from your channel topic, saved to Drive and logged in Sheets | 5 s, 480p: $0.20 |
+| [`script-to-storyboard-clips.json`](https://raw.githubusercontent.com/al-global-tech/uberllm-n8n-templates/main/workflows/script-to-storyboard-clips.json) | A long script becomes one clip per scene, made in parallel, the total checked first | 2 scenes, 5 s, 480p: $0.40 |
+| [`text-to-voice-over-or-music-to-google-drive.json`](https://raw.githubusercontent.com/al-global-tech/uberllm-n8n-templates/main/workflows/text-to-voice-over-or-music-to-google-drive.json) | A form: text becomes a voice-over, or a description becomes a music track, saved to Drive | voice $0.0003, music $0.025 |
+| [`cheapest-model-router-with-cost-log.json`](https://raw.githubusercontent.com/al-global-tech/uberllm-n8n-templates/main/workflows/cheapest-model-router-with-cost-log.json) | Each prompt goes to the cheapest model on your list at today's prices; the cost is logged to Sheets | under $0.0001 |
+
+A video, picture or track that is not made costs nothing. Get a key at
+[martllm.com](https://martllm.com/signup).
+
 ## The video templates
 
 | File | What it does | Default run |
@@ -159,7 +180,7 @@ python3 tools/check.py            # structure check: unique names, links, creden
 
 ## Other MartLLM integrations
 
-- n8n community node: [n8n-nodes-uberllm](https://github.com/al-global-tech/n8n-nodes-uberllm)
+- n8n community node: [n8n-nodes-martllm](https://www.npmjs.com/package/n8n-nodes-martllm)
 - ComfyUI nodes: [comfyui-uberllm](https://github.com/al-global-tech/comfyui-uberllm)
 
 MIT license. MartLLM is not affiliated with Uber.

@@ -1,0 +1,1043 @@
+{
+  "name": "Make an ad test set from one product brief: 5 angles and headlines in every ad size, saved to Drive and a sheet (MartLLM)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## An ad test set from one product brief\n\nFill in a short form: a product photo, the product name, and who it is for. A text model writes 5 different angles, each with a headline and a primary text. An image model then makes each angle as an ad image in every size you chose (square, portrait and vertical by default), from your real photo so the product stays the same. Every image is saved to a new Google Drive folder and listed in a Google Sheet with its headline, size and cost, ready to load into your ad account.\n\nNothing is posted or launched anywhere.\n\n### Set up (10 minutes)\n1. Get an API key at [martllm.com](https://martllm.com/go/n8n-ad-creative-test-set) and add credit.\n2. Open **Save the photo** → Credential → Create new → **Header Auth**:\n   - Name: `Authorization`\n   - Value: `Bearer ` followed by your key\n   The other MartLLM steps use the same credential. If you already made it for another MartLLM or UberLLM template, pick that one.\n3. Open **Make a Drive folder** and **Save to the Drive folder** and connect Google Drive.\n4. Open **Add the row to the sheet**: connect Google Sheets and pick a spreadsheet and tab. An empty tab is fine: the column names are written on the first run.\n5. Activate the workflow, open **Brief form** and copy its link.\n\n### Price\nListed on 2026-11-25: $0.0079 per image (Nano Banana), so 5 angles in 3 sizes = 15 images, about $0.12. The ad copy costs a fraction of a cent. The workflow reads the real price of every image before it makes the first one. Prices move: [live prices](https://martllm.com/models).\n\n### What you pay\n- Each request costs what the seller that made it charged. No MartLLM fee on requests.\n- Anything that is not made costs nothing.\n- Adding credit by card costs 5.5% + $0.50. Credit does not expire while your account is open.\n",
+        "height": 940,
+        "width": 560
+      },
+      "id": "b399e0ab-d9bb-538f-aa45-56ace56142b7",
+      "name": "Note: start here",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -720,
+        -260
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Change it here\n**Settings** holds the number of angles, the sizes (`1:1` square, `4:5` portrait feed, `9:16` stories and reels, `16:9` wide), the models, the most one run may cost and the rules for the ad copy.\n\nAny image-edit model on [martllm.com/models](https://martllm.com/models) works: copy its id.",
+        "height": 340,
+        "width": 260,
+        "color": 5
+      },
+      "id": "7d7a967b-ab3b-55f4-a7ca-a7f4b1203d75",
+      "name": "Note: settings",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        880,
+        -260
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Price first\nThe price of every image is read before the first one is made. Nothing is charged for that. If the set would cost more than `max_total_cost_usd`, or a size is one the model does not make, the form stops here with the reason.",
+        "height": 220,
+        "width": 440,
+        "color": 6
+      },
+      "id": "fb0cab59-c477-5a29-aab7-4120b9704538",
+      "name": "Note: price first",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1600,
+        -260
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### One ad at a time\nAn image that cannot be made does not stop the others. Its row in the sheet says why, in the API's own words, and it costs nothing. MartLLM keeps an image link for about 15 minutes, so each image is saved to Drive at once.",
+        "height": 180,
+        "width": 900,
+        "color": 6
+      },
+      "id": "36110d51-7e74-58aa-a022-e9857d45ab0b",
+      "name": "Note: one at a time",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2560,
+        -260
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Before you run these\nLook at every image: a model can change a label or a colour. People in the images are AI-generated; label them where your ad platform asks for it, and never present one as a real customer.",
+        "height": 220,
+        "width": 420,
+        "color": 3
+      },
+      "id": "b0b7486d-bdf9-5fbd-af82-b27864176e59",
+      "name": "Note: before you run ads",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        4000,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "formTitle": "Make an ad test set",
+        "formDescription": "Upload one clear photo of your product and tell us who it is for. You get 5 ad angles, each with a headline, as images in every ad size. It takes a few minutes; keep this page open.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Product photo",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "acceptFileTypes": ".jpg, .jpeg, .png, .webp",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Product name",
+              "placeholder": "e.g. Canvas Runner sneaker",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Who is it for, and why do they buy it?",
+              "fieldType": "textarea",
+              "placeholder": "e.g. Commuters who walk a lot. Light, breathable, machine washable. Honest and casual tone.",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {
+          "buttonLabel": "Make my ads"
+        }
+      },
+      "id": "d486e73b-b799-501b-a9a1-53c0364aace4",
+      "name": "Brief form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "96b9edcb-d19f-506c-a6cb-a27b06611638"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Checks the uploaded photo and reads the form.\nconst item = $input.first();\nconst files = item.binary || {};\nconst key = Object.keys(files)[0];\nif (!key) throw new Error('Add a product photo to the form.');\nconst buffer = await this.helpers.getBinaryDataBuffer(0, key);\nif (buffer.length > 10 * 1024 * 1024) throw new Error('The photo is bigger than 10 MB. Use a smaller photo.');\nif (!/^image\\/(png|jpe?g|webp)$/.test(files[key].mimeType || '')) throw new Error('Use a JPG, PNG or WebP photo.');\nconst form = item.json;\nconst product = String(form['Product name'] || '').trim();\nconst brief = String(form['Who is it for, and why do they buy it?'] || '').trim();\nif (!product || !brief) throw new Error('Fill in the product name and who it is for.');\nreturn [{ json: { product, brief }, binary: { photo: files[key] } }];"
+      },
+      "id": "d88f938d-3624-5ac2-a9eb-7de8d5bd1efd",
+      "name": "Get the photo ready",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.martllm.com/v1/files",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "photo"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "8fe8d183-df58-5a49-aa25-002ca1153f7f",
+      "name": "Save the photo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "martllmApiKey01",
+          "name": "MartLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5b5438ed-fcb1-5c2f-afe7-a10d7c09711f",
+              "name": "angles",
+              "value": 5,
+              "type": "number"
+            },
+            {
+              "id": "8865354d-a764-5826-a48b-8ffa1150377e",
+              "name": "ad_sizes",
+              "value": "1:1, 4:5, 9:16",
+              "type": "string"
+            },
+            {
+              "id": "754a299b-e8db-5a2a-a271-2b36bfe8c96d",
+              "name": "image_model",
+              "value": "google/nano-banana",
+              "type": "string"
+            },
+            {
+              "id": "72668c34-e1cb-5d2b-a525-96ac899f654c",
+              "name": "backup_image_models",
+              "value": "google/nano-banana-2-edit",
+              "type": "string"
+            },
+            {
+              "id": "a1c56611-24ee-532b-a199-2aa3727ceef1",
+              "name": "copy_model",
+              "value": "deepseek/deepseek-v4.1-flash",
+              "type": "string"
+            },
+            {
+              "id": "e7745b47-23a1-5c51-abcf-1b243ad64804",
+              "name": "max_total_cost_usd",
+              "value": 1,
+              "type": "number"
+            },
+            {
+              "id": "dad25aae-fa8e-5bc9-a042-8d3c7cd37e2d",
+              "name": "copy_instructions",
+              "value": "You plan ad creative tests for online stores. You get a product name, who it is for and why they buy it, and how many angles to write.\n\nWrite that many angles that are clearly different from each other, so a test can tell which idea works: for example the main benefit, a problem it solves, a moment of use, who it is for, what makes it different. Use only what the brief says. Never invent prices, discounts, reviews, numbers, awards or health claims.\n\nFor each angle write:\n- angle: two to four words that name the idea\n- headline: at most 40 characters\n- primary_text: one or two sentences, at most 125 characters\n- image_prompt: one sentence that describes a photo for this angle: where the product is, what surrounds it, the light and the mood. The product itself comes from a real photo, so do not describe the product. No text in the image.\n\nAnswer with JSON only: {\"variants\": [{\"angle\": \"...\", \"headline\": \"...\", \"primary_text\": \"...\", \"image_prompt\": \"...\"}]}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "id": "f7e48431-42fb-53ce-a228-275f57d3ca87",
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        720,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.martllm.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  model: $json.copy_model,\n  temperature: 0.9,\n  response_format: { type: 'json_object' },\n  messages: [\n    { role: 'system', content: $json.copy_instructions },\n    { role: 'user', content: 'Product: ' + $('Get the photo ready').first().json.product + '\\nWho it is for and why they buy it: ' + $('Get the photo ready').first().json.brief + '\\nNumber of angles: ' + $json.angles }\n  ]\n}) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "5958a38f-b248-51fe-aca0-89ee156cd296",
+      "name": "Write the ad angles",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "martllmApiKey01",
+          "name": "MartLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "// One item per ad image: every angle in every size.\nconst reply = $input.first().json;\nconst said = String(reply.choices?.[0]?.message?.content || '');\nconst found = said.match(/\\{[\\s\\S]*\\}/);\nlet plan;\ntry { plan = JSON.parse(found ? found[0] : said); } catch (e) {\n  throw new Error('The copy model did not answer in the expected shape. Send the form again, or pick another copy_model in Settings.');\n}\nconst s = $('Settings').first().json;\nconst text = (v) => String(v ?? '').trim();\nconst count = Math.max(1, Math.min(10, Number(s.angles) || 5));\nconst variants = (Array.isArray(plan.variants) ? plan.variants : []).filter((v) => text(v?.headline) && text(v?.image_prompt)).slice(0, count);\nif (!variants.length) throw new Error('The copy model wrote no usable angles. Send the form again.');\nconst sizes = [...new Set(text(s.ad_sizes).split(',').map((x) => x.trim()).filter(Boolean))];\nif (!sizes.length) throw new Error('Settings: write at least one size in ad_sizes, for example 1:1, 4:5, 9:16.');\nconst form = $('Get the photo ready').first().json;\nconst photo = $('Save the photo').first().json;\nif (!photo.url && !photo.id) throw new Error('The photo was not saved: ' + (photo.error?.message || 'no file came back') + '.');\nconst backups = text(s.backup_image_models).split(',').map((x) => x.trim()).filter(Boolean);\nconst budget = Number(s.max_total_cost_usd) || 1;\nconst safe = (v) => text(v).replace(/[^\\p{L}\\p{N} _-]+/gu, ' ').replace(/\\s+/g, ' ').trim().slice(0, 40);\nconst ads = [];\nvariants.forEach((v, i) => sizes.forEach((size) => ads.push({ json: {\n  product: form.product, variant: i + 1, angle: text(v.angle) || 'Angle ' + (i + 1), headline: text(v.headline).slice(0, 80), primary_text: text(v.primary_text).slice(0, 300), size,\n  file_name: (safe(form.product) || 'ad') + ' v' + (i + 1) + ' ' + size.replace(':', 'x'),\n  copy_cost_usd: Number(reply.usage?.cost_usd) || 0,\n  backups,\n  request: {\n    model: s.image_model,\n    prompt: text(v.image_prompt).replace(/[.\\s]+$/, '') + '. The product is ' + form.product + '. Keep the product exactly as it is in the photo: same shape, colours, label and text. Realistic advertising photo. Do not add text, logos or prices.',\n    image_url: photo.url || photo.id, aspect_ratio: size, max_cost: budget,\n    metadata: { template: 'ad-creative-test-set', variant: String(i + 1), size },\n  },\n} })));\nreturn ads;"
+      },
+      "id": "bdbb180f-8b43-5270-a999-50ef7b19583c",
+      "name": "Read the angles",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.martllm.com/v1/images/edits",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ ...$json.request, validate: true }) }}",
+        "options": {
+          "timeout": 120000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
+          "batching": {
+            "batch": {
+              "batchSize": 5,
+              "batchInterval": 1000
+            }
+          }
+        }
+      },
+      "id": "c80f7e7f-c326-59ef-a4cb-32991fca0835",
+      "name": "Check each price",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "martllmApiKey01",
+          "name": "MartLLM API key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Stops before anything is made when an image is refused or the set would cost too much.\nconst ads = $('Read the angles').all();\nconst quotes = $input.all().map((i) => i.json);\nconst s = $('Settings').first().json;\nconst bad = quotes.findIndex((q) => q.valid !== true);\nif (bad >= 0) {\n  const q = quotes[bad];\n  throw new Error('Size ' + ads[bad].json.size + ' cannot be made: ' + (q.error?.message || (typeof q.error === 'string' ? q.error : '') || q.message || 'the price check did not answer') + ' Nothing was made and nothing was charged.');\n}\nconst total = Math.round(quotes.reduce((sum, q) => sum + Number(q.cost_usd || 0), 0) * 1e6) / 1e6;\nconst budget = Number(s.max_total_cost_usd) || 1;\nif (total > budget) throw new Error(ads.length + ' images would cost about $' + total + ', more than max_total_cost_usd in Settings ($' + budget + '). Lower angles or ad_sizes, or raise the limit. Nothing was made and nothing was charged.');\nconst stamp = new Date().toISOString().slice(0, 16).replace('T', ' ');\nreturn [{ json: { images: ads.length, quoted_total_usd: total, folder_name: ads[0].json.product + ' ad test ' + stamp } }];"
+      },
+      "id": "c89e445e-0eba-50c4-a8b7-f52318734a6c",
+      "name": "Add up the price",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "operation": "create",
+        "name": "={{ $json.folder_name }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "root",
+          "cachedResultName": "/ (Root folder)"
+        },
+        "options": {}
+      },
+      "id": "4fb8d71b-61f5-5cc8-a234-bf7e89de33a6",
+      "name": "Make a Drive folder",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1920,
+        300
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "googleDrive01",
+          "name": "Google Drive account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "// The ads again, one item each, now that the price is fine and the folder exists.\nconst folder = $input.first().json;\nif (!folder.id) throw new Error('Google Drive did not make the folder. Check the Google Drive credential.');\nreturn $('Read the angles').all().map((ad) => {\n  const { backups, ...rest } = ad.json;\n  return { json: { ...rest, folder_id: folder.id, request: { ...rest.request, models: backups } } };\n});"
+      },
+      "id": "6da654ce-2685-5f88-a2fe-fcf2b3891a7e",
+      "name": "Ads to make",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "0b953780-be77-5069-a94e-605f06c4d7d7",
+      "name": "One ad at a time",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        2400,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.martllm.com/v1/images/edits",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.request) }}",
+        "options": {
+          "timeout": 180000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "aa1c8cc9-c77b-507f-a098-9269ad268b7e",
+      "name": "Make the ad image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2640,
+        320
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "martllmApiKey01",
+          "name": "MartLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "331af789-6add-5012-a7c2-46c3524ccfe6",
+              "leftValue": "={{ !!($json.data && $json.data[0] && $json.data[0].url) }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "22c9c016-5441-595e-a4f8-cf7190650aef",
+      "name": "Ad made?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2880,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.data[0].url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-UberLLM-Source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 300000,
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      },
+      "id": "52e237dd-7ce4-57f6-a4b2-0702ac3f752f",
+      "name": "Download the ad",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3120,
+        220
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "martllmApiKey01",
+          "name": "MartLLM API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "upload",
+        "inputDataFieldName": "data",
+        "name": "={{ $('One ad at a time').first().json.file_name + '.' + ($binary.data.fileExtension || 'png') }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('One ad at a time').first().json.folder_id }}"
+        },
+        "options": {}
+      },
+      "id": "80bf28a0-68c1-5038-a253-ae78c087be97",
+      "name": "Save to the Drive folder",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        3360,
+        220
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "googleDrive01",
+          "name": "Google Drive account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "96d34034-bfe7-5c97-aac1-6c1a175dfdbb",
+              "name": "date",
+              "value": "={{ $now.toFormat('yyyy-MM-dd HH:mm') }}",
+              "type": "string"
+            },
+            {
+              "id": "0394d850-4018-5cde-a30c-9b80af1d0e0e",
+              "name": "product",
+              "value": "={{ $('One ad at a time').first().json.product }}",
+              "type": "string"
+            },
+            {
+              "id": "a1a737e0-7ede-5e3a-a487-46b35bfe974e",
+              "name": "variant",
+              "value": "={{ $('One ad at a time').first().json.variant }}",
+              "type": "number"
+            },
+            {
+              "id": "853c268e-b35a-57be-ad19-e0d5bdef0dc8",
+              "name": "angle",
+              "value": "={{ $('One ad at a time').first().json.angle }}",
+              "type": "string"
+            },
+            {
+              "id": "bfef1683-3b18-52a7-a0ca-3cfcc0309b18",
+              "name": "headline",
+              "value": "={{ $('One ad at a time').first().json.headline }}",
+              "type": "string"
+            },
+            {
+              "id": "48b80136-d80a-55f4-a497-72657f4982bc",
+              "name": "primary_text",
+              "value": "={{ $('One ad at a time').first().json.primary_text }}",
+              "type": "string"
+            },
+            {
+              "id": "96f2be4e-e22a-51f8-a377-1b44347d7586",
+              "name": "size",
+              "value": "={{ $('One ad at a time').first().json.size }}",
+              "type": "string"
+            },
+            {
+              "id": "1b1c4eb3-fa1e-5c30-a763-86a90a6bc72a",
+              "name": "image_link",
+              "value": "={{ $json.webViewLink || ('https://drive.google.com/file/d/' + $json.id + '/view') }}",
+              "type": "string"
+            },
+            {
+              "id": "f59991ed-7bb8-5cee-acef-e5f43c8359f5",
+              "name": "cost_usd",
+              "value": "={{ String($('Make the ad image').first().json.usage?.cost_usd ?? '') }}",
+              "type": "string"
+            },
+            {
+              "id": "490e12f0-9e2e-5e3d-a845-7f42d8758b65",
+              "name": "status",
+              "value": "made",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "id": "6e476d7e-6394-5798-af93-eae9e5b052dd",
+      "name": "Row: made",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3600,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5d8390d3-7e74-5236-ac0e-b47d452fbc0c",
+              "name": "date",
+              "value": "={{ $now.toFormat('yyyy-MM-dd HH:mm') }}",
+              "type": "string"
+            },
+            {
+              "id": "310f01d3-e719-5ea4-a0b6-f3a816a19d34",
+              "name": "product",
+              "value": "={{ $('One ad at a time').first().json.product }}",
+              "type": "string"
+            },
+            {
+              "id": "e35f3dfc-67aa-5570-ad4d-e78299e6a335",
+              "name": "variant",
+              "value": "={{ $('One ad at a time').first().json.variant }}",
+              "type": "number"
+            },
+            {
+              "id": "6560fb56-bda2-5fb7-a9c8-bd4d5a23d2f1",
+              "name": "angle",
+              "value": "={{ $('One ad at a time').first().json.angle }}",
+              "type": "string"
+            },
+            {
+              "id": "b2229577-4a28-5dcb-a010-6d266eeafcaf",
+              "name": "headline",
+              "value": "={{ $('One ad at a time').first().json.headline }}",
+              "type": "string"
+            },
+            {
+              "id": "d4a6d66b-d5ba-5c37-ad8f-16f333e0f3f0",
+              "name": "primary_text",
+              "value": "={{ $('One ad at a time').first().json.primary_text }}",
+              "type": "string"
+            },
+            {
+              "id": "bd4f365e-cb02-5468-ac71-7d1290fab025",
+              "name": "size",
+              "value": "={{ $('One ad at a time').first().json.size }}",
+              "type": "string"
+            },
+            {
+              "id": "3ee29221-9a2e-522a-a81a-737825cd4aad",
+              "name": "image_link",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "57446f08-e8a9-5ff6-ae51-b05d4f8aebce",
+              "name": "cost_usd",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "58bc5c99-6aa7-50b8-acd2-967e6cd84d6b",
+              "name": "status",
+              "value": "={{ 'not made, nothing charged: ' + (($json.error && ($json.error.message || (typeof $json.error === 'string' ? $json.error : ''))) || $json.message || 'the request did not answer') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "id": "2d3f6e4e-3974-57ef-a038-d36dd225f7af",
+      "name": "Row: not made",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3120,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "sheet",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      },
+      "id": "68ec3803-a139-5731-a11c-127716a46acf",
+      "name": "Add the row to the sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        3840,
+        320
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "googleSheets01",
+          "name": "Google Sheets account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "// What this run made. The same numbers are in the sheet, one row per image.\nconst rows = $input.all().map((i) => i.json).filter((r) => r.status !== undefined);\nconst made = rows.filter((r) => r.status === 'made');\nconst first = $('Ads to make').first().json;\nconst cost = made.reduce((sum, r) => sum + (Number(r.cost_usd) || 0), 0) + (Number(first.copy_cost_usd) || 0);\nconst failed = rows.find((r) => r.status !== 'made');\nreturn [{ json: {\n  images_made: made.length,\n  images_not_made: rows.length - made.length,\n  total_cost_usd: Math.round(cost * 1e6) / 1e6,\n  folder_link: 'https://drive.google.com/drive/folders/' + first.folder_id,\n  first_problem: failed ? failed.status : '',\n} }];"
+      },
+      "id": "9bf796e3-57fa-529b-af44-7bc7c66a1372",
+      "name": "Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "text",
+        "completionTitle": "={{ $json.images_made + ' ad images are in your Google Drive' }}",
+        "completionMessage": "={{ 'Cost: $' + $json.total_cost_usd + '. Each image is listed in your sheet with its headline, size and cost.' + ($json.images_not_made ? ' ' + $json.images_not_made + ' could not be made; the sheet says why. The first reason: ' + $json.first_problem.replace(/\\.+$/, '') + '.' : '') + ' Your folder: ' + $json.folder_link }}",
+        "options": {}
+      },
+      "id": "6b404369-c396-5e8a-a0b7-f7e13d30e34f",
+      "name": "Show the result",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 1,
+      "position": [
+        2880,
+        60
+      ],
+      "webhookId": "ee9ffac6-d5a9-574c-a79b-3d512d820530"
+    }
+  ],
+  "connections": {
+    "Brief form": {
+      "main": [
+        [
+          {
+            "node": "Get the photo ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get the photo ready": {
+      "main": [
+        [
+          {
+            "node": "Save the photo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save the photo": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Write the ad angles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write the ad angles": {
+      "main": [
+        [
+          {
+            "node": "Read the angles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read the angles": {
+      "main": [
+        [
+          {
+            "node": "Check each price",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check each price": {
+      "main": [
+        [
+          {
+            "node": "Add up the price",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add up the price": {
+      "main": [
+        [
+          {
+            "node": "Make a Drive folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Make a Drive folder": {
+      "main": [
+        [
+          {
+            "node": "Ads to make",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ads to make": {
+      "main": [
+        [
+          {
+            "node": "One ad at a time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One ad at a time": {
+      "main": [
+        [
+          {
+            "node": "Summary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Make the ad image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summary": {
+      "main": [
+        [
+          {
+            "node": "Show the result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Make the ad image": {
+      "main": [
+        [
+          {
+            "node": "Ad made?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ad made?": {
+      "main": [
+        [
+          {
+            "node": "Download the ad",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Row: not made",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download the ad": {
+      "main": [
+        [
+          {
+            "node": "Save to the Drive folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to the Drive folder": {
+      "main": [
+        [
+          {
+            "node": "Row: made",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Row: made": {
+      "main": [
+        [
+          {
+            "node": "Add the row to the sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add the row to the sheet": {
+      "main": [
+        [
+          {
+            "node": "One ad at a time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Row: not made": {
+      "main": [
+        [
+          {
+            "node": "Add the row to the sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "description": "One product photo and a short brief become 5 ad angles, each with a headline, as images in every ad size you choose. The images go to a Google Drive folder and a Google Sheet lists each one with its headline, size and cost."
+  },
+  "tags": []
+}
