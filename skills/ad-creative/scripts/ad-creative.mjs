@@ -25,7 +25,7 @@ const DEFAULTS = {
   imageModel: 'google/nano-banana-2-edit',
   videoModel: 'kling/kling-o3-standard-image-to-video',
   // Tried in order only when the first has no free provider right now.
-  videoBackups: ['fal-ai/kling-video/o3/standard/image-to-video'],
+  videoBackups: ['kling/kling-o3-standard-image-to-video'],
   voiceModel: 'venice/kokoro-tts',
   voice: 'af_heart',
 };

@@ -26,12 +26,12 @@ FEE = 'No UberLLM fee on requests. Adding credit by card costs 5.5% + $0.50.'
 CRED = {'httpHeaderAuth': {'id': 'uberllmApiKey01', 'name': 'UberLLM API key'}}
 
 MODELS_USED = [
-    'fal-ai/veo3.1/fast', 'fal-ai/veo3.1/fast/image-to-video', 'fal-ai/veo3.1', 'fal-ai/veo3.1/image-to-video',
-    'fal-ai/veo3.1/lite',
-    'fal-ai/kling-video/v3/standard/image-to-video', 'fal-ai/kling-video/v3/pro/image-to-video',
-    'fal-ai/minimax/hailuo-02/standard/image-to-video', 'venice/z-image-turbo',
+    'google/veo3-1-fast-text-to-video', 'google/veo3-1-fast-image-to-video', 'google/veo3-1-full-text-to-video', 'google/veo3-1-full-image-to-video',
+    'google/veo-3.1-lite',
+    'kling/kling-v3-standard-image-to-video', 'kling/kling-v3-pro-image-to-video',
+    'minimax/hailuo-02-standard-image-to-video', 'venice/z-image-turbo',
     'google/nano-banana-2-edit', 'deepseek/deepseek-v3.2', 'google/gemini-2.5-flash',
-    'kling/kling-o3-standard-image-to-video', 'fal-ai/kling-video/o3/standard/image-to-video', 'venice/kokoro-tts',
+    'kling/kling-o3-standard-image-to-video', 'kling/kling-o3-standard-image-to-video', 'venice/kokoro-tts',
 ]
 
 
@@ -273,14 +273,14 @@ def video_price_line(prices, mid, res, audio, seconds):
     if r is None:
         return ''
     return (f"{usd(r)} per second" + (f" at {res}" if res else '') + (' with sound' if audio else ' without sound')
-            + f" → {usd(r * seconds)} for {seconds} s (price on {prices['checked']}; live prices: https://uberllm.dev/fal-api-pricing)")
+            + f" → {usd(r * seconds)} for {seconds} s (price on {prices['checked']}; live prices: https://martllm.com/video-api-pricing)")
 
 
 # ------------------------------------------------------------------ templates
 
 def t_text_to_video(prices):
     wf = WF('veo-3-1-fast-text-to-video', 'UberLLM: text to video with Veo 3.1 Fast')
-    m = 'fal-ai/veo3.1/fast'
+    m = 'google/veo3-1-fast-text-to-video'
     wf.note('About', (-560, -260), 520, 760,
             "## Text to video with Veo 3.1 Fast (UberLLM)\n"
             "Writes a video from a prompt with Google's Veo 3.1 Fast, waits for it, and hands you the file.\n\n"
@@ -309,8 +309,8 @@ def t_text_to_video(prices):
 
 def t_image_to_video(prices):
     wf = WF('kling-image-to-video', 'UberLLM: image to video with Kling 3.0')
-    m = 'fal-ai/kling-video/v3/standard/image-to-video'
-    pro = 'fal-ai/kling-video/v3/pro/image-to-video'
+    m = 'kling/kling-v3-standard-image-to-video'
+    pro = 'kling/kling-v3-pro-image-to-video'
     wf.note('About', (-560, -260), 520, 800,
             "## Image to video with Kling 3.0 (UberLLM)\n"
             "Turns a picture into a video clip: the picture is the first frame and the prompt says what moves.\n\n"
@@ -377,7 +377,7 @@ return [{ json: { title: script.title, caption: script.caption, hashtags: script
 
 def t_shorts(prices):
     wf = WF('faceless-shorts-pipeline', 'UberLLM: faceless Shorts pipeline (script → images → video clips)')
-    chat, img, vid = 'deepseek/deepseek-v3.2', 'venice/z-image-turbo', 'fal-ai/minimax/hailuo-02/standard/image-to-video'
+    chat, img, vid = 'deepseek/deepseek-v3.2', 'venice/z-image-turbo', 'minimax/hailuo-02-standard-image-to-video'
     ip = prices['models'].get(img, {}).get('usd')
     vr = per_second(prices, vid, '768p', False)
     per_scene = (ip or 0) + (vr or 0) * 6
@@ -450,7 +450,7 @@ UGC_SYSTEM = (
 
 def t_ugc(prices):
     wf = WF('ugc-product-ad', 'UberLLM: UGC-style product ad from one product photo')
-    vis, ed, vid = 'google/gemini-2.5-flash', 'google/nano-banana-2-edit', 'fal-ai/kling-video/v3/standard/image-to-video'
+    vis, ed, vid = 'google/gemini-2.5-flash', 'google/nano-banana-2-edit', 'kling/kling-v3-standard-image-to-video'
     ep = prices['models'].get(ed, {}).get('usd')
     vr = per_second(prices, vid, None, True)
     wf.note('About', (-600, -300), 560, 980,
@@ -513,8 +513,8 @@ VEO_PROMPT_SYSTEM = (
 
 def t_gemini_replacement(prices):
     wf = WF('gemini-veo-replacement', 'Generate AI videos with Veo 3.1 after the Gemini API shutdown (UberLLM drop-in)')
-    fast, full, lite = 'fal-ai/veo3.1/fast', 'fal-ai/veo3.1', 'fal-ai/veo3.1/lite'
-    i2v, full_i2v = 'fal-ai/veo3.1/fast/image-to-video', 'fal-ai/veo3.1/image-to-video'
+    fast, full, lite = 'google/veo3-1-fast-text-to-video', 'google/veo3-1-full-text-to-video', 'google/veo-3.1-lite'
+    i2v, full_i2v = 'google/veo3-1-fast-image-to-video', 'google/veo3-1-full-image-to-video'
     chat = 'deepseek/deepseek-v3.2'
     wf.note('About', (-640, -320), 600, 1180,
             "## Veo 3.1 after the Gemini API shutdown\n"
@@ -574,7 +574,7 @@ def t_gemini_replacement(prices):
 
 AD_EDIT = 'google/nano-banana-2-edit'
 AD_VIDEO = 'kling/kling-o3-standard-image-to-video'
-AD_VIDEO_BACKUP = 'fal-ai/kling-video/o3/standard/image-to-video'
+AD_VIDEO_BACKUP = 'kling/kling-o3-standard-image-to-video'
 AD_VOICE = 'venice/kokoro-tts'
 RAW = 'https://raw.githubusercontent.com/al-global-tech/uberllm-n8n-templates/main'
 KEEP = 'Keep the product exactly as it is in the photo: same shape, colours, label and text.'

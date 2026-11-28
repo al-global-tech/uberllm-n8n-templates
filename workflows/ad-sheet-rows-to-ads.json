@@ -97,7 +97,7 @@
             {
               "id": "ede860fd-2942-59fe-9125-1619a5ae4b07",
               "name": "backup_video_model",
-              "value": "fal-ai/kling-video/o3/standard/image-to-video",
+              "value": "kling/kling-o3-standard-image-to-video",
               "type": "string"
             },
             {

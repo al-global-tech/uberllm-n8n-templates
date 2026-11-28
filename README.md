@@ -29,7 +29,7 @@ workflow and one command of a script with no dependencies,
 | Studio still of the product alone and a turntable-style clip | [`ad-product-spin-video.json`](workflows/ad-product-spin-video.json) | `spin product.jpg` | 3 min 11 s, $0.41: still 1024x1024, clip 960x960 5 s |
 
 Models: `google/nano-banana-2-edit` (still), `kling/kling-o3-standard-image-to-video`
-(clip, with `fal-ai/kling-video/o3/standard/image-to-video` as backup) and
+(clip, with `kling/kling-o3-standard-image-to-video` as backup) and
 `venice/kokoro-tts` (voice). Change them in **Settings** or with `--image-model`,
 `--video-model`, `--voice-model`. The sample product is [`samples/bottle.jpg`](samples/bottle.jpg)
 and the sample sheet is [`samples/ad-rows.csv`](samples/ad-rows.csv).
@@ -84,7 +84,7 @@ prices a run first and asks before it spends.
 
 What a run costs today, at each template's default settings, is on
 [martllm.com/docs/n8n-video](https://martllm.com/docs/n8n-video) (read from the live price
-list). Per-second prices for every video model: [martllm.com/fal-api-pricing](https://martllm.com/fal-api-pricing).
+list). Per-second prices for every video model: [martllm.com/video-api-pricing](https://martllm.com/video-api-pricing).
 
 ## Use one
 
@@ -111,11 +111,11 @@ and swap the model name:
 
 | Gemini model | MartLLM model |
 |---|---|
-| `veo-3.1-generate-preview` | `fal-ai/veo3.1` |
-| `veo-3.1-fast-generate-preview` | `fal-ai/veo3.1/fast` |
-| `veo-3.1-lite-generate-preview` | `fal-ai/veo3.1/lite` |
-| Veo 3.1 from a picture | `fal-ai/veo3.1/image-to-video` (add `image_url`) |
-| Veo 3.1 Fast from a picture | `fal-ai/veo3.1/fast/image-to-video` (add `image_url`) |
+| `veo-3.1-generate-preview` | `google/veo3-1-full-text-to-video` |
+| `veo-3.1-fast-generate-preview` | `google/veo3-1-fast-text-to-video` |
+| `veo-3.1-lite-generate-preview` | `google/veo-3.1-lite` |
+| Veo 3.1 from a picture | `google/veo3-1-full-image-to-video` (add `image_url`) |
+| Veo 3.1 Fast from a picture | `google/veo3-1-fast-image-to-video` (add `image_url`) |
 
 The **Video** node gives what the Gemini node gave: the file as binary `data` and a `url`.
 That link needs your key and is kept about 3 hours, so a step that posts by link

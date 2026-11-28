@@ -1,7 +1,7 @@
 {
   "checked": "2026-11-19",
   "models": {
-    "fal-ai/veo3.1/fast": {
+    "google/veo3-1-fast-text-to-video": {
       "name": "Veo 3.1 Fast Text to Video",
       "unit": "second",
       "usd": 0.085,
@@ -45,7 +45,7 @@
       ],
       "price_now": null
     },
-    "fal-ai/veo3.1/fast/image-to-video": {
+    "google/veo3-1-fast-image-to-video": {
       "name": "Veo 3.1 Fast Image to Video",
       "unit": "second",
       "usd": 0.085,
@@ -89,7 +89,7 @@
       ],
       "price_now": null
     },
-    "fal-ai/veo3.1": {
+    "google/veo3-1-full-text-to-video": {
       "name": "Veo 3.1 Text to Video",
       "unit": "second",
       "usd": 0.17,
@@ -133,7 +133,7 @@
       ],
       "price_now": null
     },
-    "fal-ai/veo3.1/image-to-video": {
+    "google/veo3-1-full-image-to-video": {
       "name": "Veo 3.1 Image to Video",
       "unit": "second",
       "usd": 0.17,
@@ -177,7 +177,7 @@
       ],
       "price_now": null
     },
-    "fal-ai/veo3.1/lite": {
+    "google/veo-3.1-lite": {
       "name": "Veo 3.1 Lite Text to Video",
       "unit": "second",
       "usd": 0.0255,
@@ -209,7 +209,7 @@
       ],
       "price_now": null
     },
-    "fal-ai/kling-video/v3/standard/image-to-video": {
+    "kling/kling-v3-standard-image-to-video": {
       "name": "Kling 3 Standard Image to Video",
       "unit": "second",
       "usd": 0.07,
@@ -227,7 +227,7 @@
       ],
       "price_now": null
     },
-    "fal-ai/kling-video/v3/pro/image-to-video": {
+    "kling/kling-v3-pro-image-to-video": {
       "name": "Kling 3 Pro Image to Video",
       "unit": "second",
       "usd": 0.09,
@@ -245,7 +245,7 @@
       ],
       "price_now": null
     },
-    "fal-ai/minimax/hailuo-02/standard/image-to-video": {
+    "minimax/hailuo-02-standard-image-to-video": {
       "name": "Hailuo 02 Standard Image to Video",
       "unit": "second",
       "usd": 0.01445,
@@ -308,7 +308,7 @@
       "rates": null,
       "price_now": null
     },
-    "fal-ai/kling-video/o3/standard/image-to-video": {
+    "kling/kling-o3-standard-image-to-video": {
       "name": "Kling O3 Standard Image to Video",
       "unit": "second",
       "usd": 0.07,
